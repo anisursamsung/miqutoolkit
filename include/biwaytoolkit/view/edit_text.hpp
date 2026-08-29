@@ -1,0 +1,128 @@
+#pragma once
+
+#include "biwaytoolkit/view/view.hpp"
+#include <string>
+#include <functional>
+
+namespace biway {
+
+class EditText : public View {
+public:
+    EditText() = default;
+
+    void set_text(std::string text);
+    const std::string& get_text() const { return m_text; }
+
+    void set_hint(std::string hint) { m_hint = std::move(hint); }
+    const std::string& get_hint() const { return m_hint; }
+
+    void set_on_text_changed_listener(std::function<void(std::shared_ptr<EditText>, const std::string&)> cb) {
+        m_on_text_changed = std::move(cb);
+    }
+
+    void set_focused(bool focus) { m_focused = focus; }
+    bool is_focused() const { return m_focused; }
+
+    void set_draw_background(bool draw) { m_draw_background = draw; }
+    bool is_draw_background() const { return m_draw_background; }
+
+    void clear();
+
+    void draw(cairo_t* cr, const Rect& bounds) override;
+    Size measure_size() const override;
+
+    bool on_key(const KeyPressEvent& event) override;
+    bool on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) override;
+
+private:
+    std::string m_text;
+    std::string m_hint = "Type to search...";
+    int m_cursor_pos = 0;
+    bool m_focused = true;
+    bool m_draw_background = true;
+
+    std::function<void(std::shared_ptr<EditText>, const std::string&)> m_on_text_changed;
+};
+
+class EditTextBuilder : public std::enable_shared_from_this<EditTextBuilder> {
+public:
+    EditTextBuilder() : m_view(std::make_shared<EditText>()) {}
+
+    static std::shared_ptr<EditTextBuilder> create() {
+        return std::make_shared<EditTextBuilder>();
+    }
+
+    std::shared_ptr<EditTextBuilder> hint(std::string h) {
+        m_view->set_hint(std::move(h));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> text(std::string t) {
+        m_view->set_text(std::move(t));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> onTextChanged(std::function<void(std::shared_ptr<EditText>, const std::string&)> cb) {
+        m_view->set_on_text_changed_listener(std::move(cb));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> focused(bool f = true) {
+        m_view->set_focused(f);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> drawBackground(bool d = true) {
+        m_view->set_draw_background(d);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> padding(const Padding& p) {
+        m_view->set_padding(p);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> padding(int uniform) {
+        m_view->set_padding(uniform);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> padding(int h, int v) {
+        m_view->set_padding(h, v);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> padding(int l, int t, int r, int b) {
+        m_view->set_padding(l, t, r, b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> margin(const Margin& m) {
+        m_view->set_margin(m);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> margin(int uniform) {
+        m_view->set_margin(uniform);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> margin(int h, int v) {
+        m_view->set_margin(h, v);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> margin(int l, int t, int r, int b) {
+        m_view->set_margin(l, t, r, b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditText> build() {
+        return m_view;
+    }
+
+private:
+    std::shared_ptr<EditText> m_view;
+};
+
+} // namespace biway

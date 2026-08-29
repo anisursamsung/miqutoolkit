@@ -1,0 +1,5 @@
+# Hashes of file build rules.
+107f39fa448db07c75658efced971f44 wlr-layer-shell-unstable-v1-client-protocol.c
+9eb3a91d883a7a0af65d02aa43c2b26e wlr-layer-shell-unstable-v1-client-protocol.h
+61e82635739d79fbb667b028b4ee80d4 xdg-shell-client-protocol.c
+29f0e697fcf6291c981b2f6248e3856c xdg-shell-client-protocol.h

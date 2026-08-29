@@ -1,0 +1,7 @@
+/home/banis/biwaytoolkit/build/CMakeFiles/biwaytoolkit.dir
+/home/banis/biwaytoolkit/build/CMakeFiles/edit_cache.dir
+/home/banis/biwaytoolkit/build/CMakeFiles/rebuild_cache.dir
+/home/banis/biwaytoolkit/build/CMakeFiles/list_install_components.dir
+/home/banis/biwaytoolkit/build/CMakeFiles/install.dir
+/home/banis/biwaytoolkit/build/CMakeFiles/install/local.dir
+/home/banis/biwaytoolkit/build/CMakeFiles/install/strip.dir
