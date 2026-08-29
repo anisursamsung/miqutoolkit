@@ -4,7 +4,7 @@ libdir=@CMAKE_INSTALL_FULL_LIBDIR@
 includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
 Name: miqutoolkit
-Description: High-level C++ UI Toolkit for Biway and Wayland Layer-Shell applications
+Description: High-level C++ UI Toolkit for Miquland and Wayland Layer-Shell applications
 Version: @PROJECT_VERSION@
 Requires: wayland-client xkbcommon cairo pangocairo gdk-pixbuf-2.0
 Libs: -L${libdir} -lmiqutoolkit
