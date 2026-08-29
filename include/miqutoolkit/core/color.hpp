@@ -50,9 +50,23 @@ struct Color {
     }
 
     static Color from_hex(const std::string& hex, const Color& fallback) {
-        if (hex.empty()) return fallback;
-        size_t start = (hex[0] == '#') ? 1 : 0;
-        std::string s = hex.substr(start);
+        std::string s = hex;
+        // Strip surrounding whitespace and quotes
+        while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '"' || s.front() == '\'')) {
+            s.erase(0, 1);
+        }
+        while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '"' || s.back() == '\'')) {
+            s.pop_back();
+        }
+        // Strip trailing comment if present
+        size_t comment = s.find('#', 1);
+        if (comment != std::string::npos) {
+            s = s.substr(0, comment);
+            while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
+        }
+
+        if (s.empty()) return fallback;
+        if (s[0] == '#') s = s.substr(1);
 
         try {
             if (s.length() == 6) {
@@ -70,6 +84,22 @@ struct Color {
                     ((val >> 16) & 0xFF) / 255.0f,
                     ((val >> 8) & 0xFF) / 255.0f,
                     (val & 0xFF) / 255.0f
+                );
+            } else if (s.length() == 3) {
+                uint32_t val = std::stoul(s, nullptr, 16);
+                return Color(
+                    (((val >> 8) & 0xF) * 17) / 255.0f,
+                    (((val >> 4) & 0xF) * 17) / 255.0f,
+                    ((val & 0xF) * 17) / 255.0f,
+                    1.0f
+                );
+            } else if (s.length() == 4) {
+                uint32_t val = std::stoul(s, nullptr, 16);
+                return Color(
+                    (((val >> 12) & 0xF) * 17) / 255.0f,
+                    (((val >> 8) & 0xF) * 17) / 255.0f,
+                    (((val >> 4) & 0xF) * 17) / 255.0f,
+                    ((val & 0xF) * 17) / 255.0f
                 );
             }
         } catch (...) {
