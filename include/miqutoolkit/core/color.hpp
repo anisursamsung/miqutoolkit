@@ -4,7 +4,7 @@
 #include <string>
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 struct Color {
     float r = 0.0f;
@@ -83,4 +83,4 @@ struct Color {
     }
 };
 
-} // namespace biway
+} // namespace miqu

@@ -1,6 +1,6 @@
-#include "biwaytoolkit/core/window.hpp"
-#include "biwaytoolkit/core/app_engine.hpp"
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/window.hpp"
+#include "miqutoolkit/core/app_engine.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include <sys/mman.h>
 #include <unistd.h>
@@ -9,7 +9,7 @@
 #include <iostream>
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 const struct zwlr_layer_surface_v1_listener Window::s_layer_surface_listener = {
     .configure = [](void* data, struct zwlr_layer_surface_v1* surface, uint32_t serial, uint32_t w, uint32_t h) {
@@ -250,7 +250,7 @@ bool Window::init() {
         m_surface,
         nullptr,
         layer,
-        "biwaytoolkit-overlay"
+        "miqutoolkit-overlay"
     );
 
     if (!m_layer_surface) return false;
@@ -352,4 +352,4 @@ void Window::close() {
     }
 }
 
-} // namespace biway
+} // namespace miqu

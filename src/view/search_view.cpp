@@ -1,10 +1,10 @@
-#include "biwaytoolkit/view/search_view.hpp"
-#include "biwaytoolkit/view/card_view.hpp"
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/view/search_view.hpp"
+#include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 SearchView::SearchView() {
     m_title_view = TextViewBuilder::create()->bold(true)->textSize(12)->build();
@@ -205,4 +205,4 @@ bool SearchView::on_mouse_move(int lx, int ly, const Rect& bounds) {
     return ViewGroup::on_mouse_move(lx, ly, bounds);
 }
 
-} // namespace biway
+} // namespace miqu

@@ -1,11 +1,11 @@
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 namespace fs = std::filesystem;
 
@@ -84,4 +84,4 @@ void ColorScheme::load_user_theme() {
     }
 }
 
-} // namespace biway
+} // namespace miqu

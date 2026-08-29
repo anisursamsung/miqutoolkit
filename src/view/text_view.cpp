@@ -1,7 +1,7 @@
-#include "biwaytoolkit/view/text_view.hpp"
+#include "miqutoolkit/view/text_view.hpp"
 #include <pango/pangocairo.h>
 
-namespace biway {
+namespace miqu {
 
 Size TextView::measure_size() const {
     if (m_text.empty()) return Size(0, 0);
@@ -83,4 +83,4 @@ void TextView::draw(cairo_t* cr, const Rect& bounds) {
     cairo_restore(cr);
 }
 
-} // namespace biway
+} // namespace miqu

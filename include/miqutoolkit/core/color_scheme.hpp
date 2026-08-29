@@ -1,10 +1,10 @@
 #pragma once
 
-#include "biwaytoolkit/core/color.hpp"
+#include "miqutoolkit/core/color.hpp"
 #include <memory>
 #include <string>
 
-namespace biway {
+namespace miqu {
 
 class ColorScheme {
 public:
@@ -36,4 +36,4 @@ public:
     void load_user_theme();
 };
 
-} // namespace biway
+} // namespace miqu

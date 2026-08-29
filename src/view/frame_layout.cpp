@@ -1,6 +1,6 @@
-#include "biwaytoolkit/view/frame_layout.hpp"
+#include "miqutoolkit/view/frame_layout.hpp"
 
-namespace biway {
+namespace miqu {
 
 Size FrameLayout::measure_size() const {
     int max_w = 0;
@@ -89,4 +89,4 @@ void FrameLayout::draw(cairo_t* cr, const Rect& bounds) {
     }
 }
 
-} // namespace biway
+} // namespace miqu

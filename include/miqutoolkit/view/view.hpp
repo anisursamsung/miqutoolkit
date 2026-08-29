@@ -1,15 +1,15 @@
 #pragma once
 
-#include "biwaytoolkit/core/geometry.hpp"
-#include "biwaytoolkit/core/color.hpp"
-#include "biwaytoolkit/core/types.hpp"
-#include "biwaytoolkit/view/layout_params.hpp"
+#include "miqutoolkit/core/geometry.hpp"
+#include "miqutoolkit/core/color.hpp"
+#include "miqutoolkit/core/types.hpp"
+#include "miqutoolkit/view/layout_params.hpp"
 #include <cairo.h>
 #include <memory>
 #include <vector>
 #include <functional>
 
-namespace biway {
+namespace miqu {
 
 class Window;
 
@@ -88,4 +88,4 @@ protected:
     std::function<void()> m_on_click;
 };
 
-} // namespace biway
+} // namespace miqu

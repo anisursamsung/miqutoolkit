@@ -1,11 +1,11 @@
-#include "biwaytoolkit/core/shm_pool.hpp"
+#include "miqutoolkit/core/shm_pool.hpp"
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstring>
 #include <iostream>
 
-namespace biway {
+namespace miqu {
 
 const struct wl_buffer_listener ShmPool::s_buffer_listener = {
     .release = buffer_release,
@@ -19,11 +19,11 @@ void ShmPool::buffer_release(void* data, struct wl_buffer* wl_buffer) {
 }
 
 static int create_anonymous_file(off_t size) {
-    int fd = memfd_create("biwaytoolkit-shm", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    int fd = memfd_create("miqutoolkit-shm", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (fd >= 0) {
         fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK);
     } else {
-        char template_name[] = "/tmp/biwaytoolkit-shm-XXXXXX";
+        char template_name[] = "/tmp/miqutoolkit-shm-XXXXXX";
         fd = mkstemp(template_name);
         if (fd >= 0) {
             unlink(template_name);
@@ -133,4 +133,4 @@ ShmPool::Buffer* ShmPool::get_next_buffer() {
     return buf;
 }
 
-} // namespace biway
+} // namespace miqu

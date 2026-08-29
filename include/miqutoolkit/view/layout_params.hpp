@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace biway {
+namespace miqu {
 
 class View;
 
@@ -65,4 +65,4 @@ struct LayoutParams {
     LayoutParams(int w, int h, Gravity g) : width(w), height(h), gravity(g) {}
 };
 
-} // namespace biway
+} // namespace miqu

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "biwaytoolkit/view/grid_view.hpp"
+#include "miqutoolkit/view/grid_view.hpp"
 #include <vector>
 #include <string>
 
-namespace biway {
+namespace miqu {
 
 class PackageManager {
 public:
@@ -13,4 +13,4 @@ public:
     static std::string clean_exec(const std::string& raw);
 };
 
-} // namespace biway
+} // namespace miqu

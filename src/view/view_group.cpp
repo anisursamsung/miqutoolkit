@@ -1,6 +1,6 @@
-#include "biwaytoolkit/view/view_group.hpp"
+#include "miqutoolkit/view/view_group.hpp"
 
-namespace biway {
+namespace miqu {
 
 void ViewGroup::add_view(std::shared_ptr<View> child) {
     if (!child) return;
@@ -87,4 +87,4 @@ bool ViewGroup::on_scroll(double delta) {
     return false;
 }
 
-} // namespace biway
+} // namespace miqu

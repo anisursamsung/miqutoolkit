@@ -1,11 +1,11 @@
 #pragma once
 
-#include "biwaytoolkit/view/view.hpp"
+#include "miqutoolkit/view/view.hpp"
 #include <vector>
 #include <memory>
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 class ViewGroup : public View {
 public:
@@ -40,4 +40,4 @@ protected:
     std::vector<ChildEntry> m_child_entries;
 };
 
-} // namespace biway
+} // namespace miqu

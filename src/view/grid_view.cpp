@@ -1,14 +1,14 @@
-#include "biwaytoolkit/view/grid_view.hpp"
-#include "biwaytoolkit/view/card_view.hpp"
-#include "biwaytoolkit/view/image_view.hpp"
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/view/grid_view.hpp"
+#include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/view/image_view.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include <pango/pangocairo.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
 #include <iostream>
 #include <cmath>
 
-namespace biway {
+namespace miqu {
 
 static std::string str_to_lower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
@@ -350,4 +350,4 @@ bool GridView::on_scroll(double delta) {
     return (m_scroll_y != prev_scroll);
 }
 
-} // namespace biway
+} // namespace miqu

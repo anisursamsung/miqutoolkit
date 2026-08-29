@@ -1,11 +1,11 @@
-#include "biwaytoolkit/view/card_view.hpp"
+#include "miqutoolkit/view/card_view.hpp"
 #include <cmath>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-namespace biway {
+namespace miqu {
 
 void CardView::draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r) {
     if (r <= 0.0) {
@@ -56,4 +56,4 @@ void CardView::draw(cairo_t* cr, const Rect& bounds) {
     }
 }
 
-} // namespace biway
+} // namespace miqu

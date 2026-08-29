@@ -1,10 +1,10 @@
-#include "biwaytoolkit/view/button.hpp"
-#include "biwaytoolkit/view/card_view.hpp"
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/view/button.hpp"
+#include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include <pango/pangocairo.h>
 #include <iostream>
 
-namespace biway {
+namespace miqu {
 
 Size Button::measure_size() const {
     cairo_surface_t* temp_surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
@@ -148,4 +148,4 @@ bool Button::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, c
     return false;
 }
 
-} // namespace biway
+} // namespace miqu

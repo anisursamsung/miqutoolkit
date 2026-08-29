@@ -1,8 +1,8 @@
 #pragma once
 
-#include "biwaytoolkit/view/view.hpp"
-#include "biwaytoolkit/core/shm_pool.hpp"
-#include "biwaytoolkit/core/types.hpp"
+#include "miqutoolkit/view/view.hpp"
+#include "miqutoolkit/core/shm_pool.hpp"
+#include "miqutoolkit/core/types.hpp"
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 #include <memory>
@@ -12,7 +12,7 @@
 struct zwlr_layer_surface_v1;
 struct zwlr_layer_surface_v1_listener;
 
-namespace biway {
+namespace miqu {
 
 class AppEngine;
 
@@ -184,4 +184,4 @@ private:
     std::shared_ptr<Window> m_window;
 };
 
-} // namespace biway
+} // namespace miqu

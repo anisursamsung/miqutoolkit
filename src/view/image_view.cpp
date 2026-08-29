@@ -1,6 +1,6 @@
-#include "biwaytoolkit/view/image_view.hpp"
-#include "biwaytoolkit/view/card_view.hpp"
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/view/image_view.hpp"
+#include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <filesystem>
 #include <fstream>
@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace biway {
+namespace miqu {
 
 namespace fs = std::filesystem;
 
@@ -389,4 +389,4 @@ void ImageView::draw(cairo_t* cr, const Rect& bounds) {
     cairo_restore(cr);
 }
 
-} // namespace biway
+} // namespace miqu

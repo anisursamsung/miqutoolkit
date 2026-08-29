@@ -1,9 +1,9 @@
 #pragma once
 
-#include "biwaytoolkit/view/view.hpp"
+#include "miqutoolkit/view/view.hpp"
 #include <string>
 
-namespace biway {
+namespace miqu {
 
 class ImageView : public View {
 public:
@@ -97,4 +97,4 @@ private:
     std::shared_ptr<ImageView> m_view;
 };
 
-} // namespace biway
+} // namespace miqu

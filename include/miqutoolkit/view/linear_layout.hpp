@@ -1,8 +1,8 @@
 #pragma once
 
-#include "biwaytoolkit/view/view_group.hpp"
+#include "miqutoolkit/view/view_group.hpp"
 
-namespace biway {
+namespace miqu {
 
 class LinearLayout : public ViewGroup {
 public:
@@ -108,4 +108,4 @@ private:
     std::shared_ptr<LinearLayout> m_layout;
 };
 
-} // namespace biway
+} // namespace miqu

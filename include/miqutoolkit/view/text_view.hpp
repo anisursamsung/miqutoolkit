@@ -1,9 +1,9 @@
 #pragma once
 
-#include "biwaytoolkit/view/view.hpp"
+#include "miqutoolkit/view/view.hpp"
 #include <string>
 
-namespace biway {
+namespace miqu {
 
 enum class TextAlignment {
     Left,
@@ -125,4 +125,4 @@ private:
     std::shared_ptr<TextView> m_view;
 };
 
-} // namespace biway
+} // namespace miqu

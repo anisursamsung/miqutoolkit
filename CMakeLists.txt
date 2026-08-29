@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(biwaytoolkit VERSION 1.0.0 LANGUAGES C CXX)
+project(miqutoolkit VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,7 +47,7 @@ add_custom_command(
 )
 
 # Shared Library
-add_library(biwaytoolkit SHARED
+add_library(miqutoolkit SHARED
     src/core/app_engine.cpp
     src/core/window.cpp
     src/core/color_scheme.cpp
@@ -70,12 +70,12 @@ add_library(biwaytoolkit SHARED
     ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-client-protocol.c
 )
 
-set_target_properties(biwaytoolkit PROPERTIES
+set_target_properties(miqutoolkit PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
 )
 
-target_include_directories(biwaytoolkit
+target_include_directories(miqutoolkit
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -88,7 +88,7 @@ target_include_directories(biwaytoolkit
         ${GDK_PIXBUF_INCLUDE_DIRS}
 )
 
-target_link_libraries(biwaytoolkit
+target_link_libraries(miqutoolkit
     PUBLIC
         PkgConfig::WAYLAND_CLIENT
         PkgConfig::XKBCOMMON
@@ -97,28 +97,28 @@ target_link_libraries(biwaytoolkit
         PkgConfig::GDK_PIXBUF
 )
 
-target_compile_options(biwaytoolkit PRIVATE
+target_compile_options(miqutoolkit PRIVATE
     -Wall -Wextra -Wpedantic
     -Wno-unused-parameter
 )
 
 # Generate pkg-config file
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/biwaytoolkit.pc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/biwaytoolkit.pc
+    ${CMAKE_CURRENT_SOURCE_DIR}/miqutoolkit.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/miqutoolkit.pc
     @ONLY
 )
 
 # Installation Rules
-install(TARGETS biwaytoolkit
+install(TARGETS miqutoolkit
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/biwaytoolkit
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/miqutoolkit
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/biwaytoolkit.pc
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/miqutoolkit.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "biwaytoolkit/view/view.hpp"
+#include "miqutoolkit/view/view.hpp"
 #include <string>
 #include <vector>
 #include <functional>
 
-namespace biway {
+namespace miqu {
 
 struct AppInfo {
     std::string id;
@@ -169,4 +169,4 @@ private:
     std::shared_ptr<GridView> m_view;
 };
 
-} // namespace biway
+} // namespace miqu

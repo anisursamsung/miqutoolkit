@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace biway {
+namespace miqu {
 
 enum class MouseButton {
     Left = 272,
@@ -54,4 +54,4 @@ struct KeyPressEvent {
     bool has_super() const { return (modifiers & static_cast<uint32_t>(KeyboardModifier::Super)) != 0; }
 };
 
-} // namespace biway
+} // namespace miqu

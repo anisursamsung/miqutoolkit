@@ -1,8 +1,8 @@
-#include "biwaytoolkit/view/linear_layout.hpp"
+#include "miqutoolkit/view/linear_layout.hpp"
 #include <numeric>
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 Size LinearLayout::measure_size() const {
     int total_w = 0;
@@ -182,4 +182,4 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
     }
 }
 
-} // namespace biway
+} // namespace miqu

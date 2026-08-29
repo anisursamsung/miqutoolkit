@@ -1,8 +1,8 @@
 #pragma once
 
-#include "biwaytoolkit/view/frame_layout.hpp"
+#include "miqutoolkit/view/frame_layout.hpp"
 
-namespace biway {
+namespace miqu {
 
 class CardView : public FrameLayout {
 public:
@@ -115,4 +115,4 @@ private:
     std::shared_ptr<CardView> m_view;
 };
 
-} // namespace biway
+} // namespace miqu

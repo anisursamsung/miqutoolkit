@@ -1,7 +1,7 @@
-#include "biwaytoolkit/view/relative_layout.hpp"
+#include "miqutoolkit/view/relative_layout.hpp"
 #include <map>
 
-namespace biway {
+namespace miqu {
 
 Size RelativeLayout::measure_size() const {
     int max_w = 0;
@@ -94,4 +94,4 @@ void RelativeLayout::draw(cairo_t* cr, const Rect& bounds) {
     }
 }
 
-} // namespace biway
+} // namespace miqu

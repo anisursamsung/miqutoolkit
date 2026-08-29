@@ -8,7 +8,7 @@
 
 struct zwlr_layer_shell_v1;
 
-namespace biway {
+namespace miqu {
 
 class Window;
 
@@ -53,4 +53,4 @@ private:
     std::vector<std::shared_ptr<Window>> m_windows;
 };
 
-} // namespace biway
+} // namespace miqu

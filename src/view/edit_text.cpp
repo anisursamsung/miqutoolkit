@@ -1,12 +1,12 @@
-#include "biwaytoolkit/view/edit_text.hpp"
-#include "biwaytoolkit/view/card_view.hpp"
-#include "biwaytoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/view/edit_text.hpp"
+#include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/core/color_scheme.hpp"
 #include <pango/pangocairo.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
 #include <iostream>
 
-namespace biway {
+namespace miqu {
 
 void EditText::set_text(std::string text) {
     m_text = std::move(text);
@@ -253,4 +253,4 @@ bool EditText::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
     return false;
 }
 
-} // namespace biway
+} // namespace miqu

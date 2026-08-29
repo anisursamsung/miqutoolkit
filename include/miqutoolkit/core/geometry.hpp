@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace biway {
+namespace miqu {
 
 struct Point {
     int x = 0;
@@ -62,4 +62,4 @@ struct Margin {
     constexpr Margin(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
 };
 
-} // namespace biway
+} // namespace miqu

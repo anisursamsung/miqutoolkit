@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace biway {
+namespace miqu {
 
 class ShmPool {
 public:
@@ -41,4 +41,4 @@ private:
     int m_current_buffer = 0;
 };
 
-} // namespace biway
+} // namespace miqu

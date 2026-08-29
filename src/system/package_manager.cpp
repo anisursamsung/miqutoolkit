@@ -1,5 +1,5 @@
-#include "biwaytoolkit/system/package_manager.hpp"
-#include "biwaytoolkit/view/image_view.hpp"
+#include "miqutoolkit/system/package_manager.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <cstdlib>
 
-namespace biway {
+namespace miqu {
 
 namespace fs = std::filesystem;
 
@@ -210,4 +210,4 @@ void PackageManager::launch(const AppInfo& item) {
     }
 }
 
-} // namespace biway
+} // namespace miqu

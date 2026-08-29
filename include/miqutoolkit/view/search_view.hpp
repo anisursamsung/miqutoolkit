@@ -1,13 +1,13 @@
 #pragma once
 
-#include "biwaytoolkit/view/view_group.hpp"
-#include "biwaytoolkit/view/text_view.hpp"
-#include "biwaytoolkit/view/edit_text.hpp"
-#include "biwaytoolkit/view/image_view.hpp"
+#include "miqutoolkit/view/view_group.hpp"
+#include "miqutoolkit/view/text_view.hpp"
+#include "miqutoolkit/view/edit_text.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include <string>
 #include <functional>
 
-namespace biway {
+namespace miqu {
 
 class SearchView : public ViewGroup {
 public:
@@ -156,4 +156,4 @@ private:
     std::shared_ptr<SearchView> m_view;
 };
 
-} // namespace biway
+} // namespace miqu

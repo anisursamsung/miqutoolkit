@@ -1,11 +1,11 @@
-#include "biwaytoolkit/core/app_engine.hpp"
-#include "biwaytoolkit/core/window.hpp"
+#include "miqutoolkit/core/app_engine.hpp"
+#include "miqutoolkit/core/window.hpp"
 #include <iostream>
 #include <cstring>
 #include <algorithm>
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-namespace biway {
+namespace miqu {
 
 AppEngine* AppEngine::s_instance = nullptr;
 
@@ -44,13 +44,13 @@ AppEngine::~AppEngine() {
 bool AppEngine::init() {
     m_display = wl_display_connect(nullptr);
     if (!m_display) {
-        std::cerr << "[biwaytoolkit] Failed to connect to Wayland display." << std::endl;
+        std::cerr << "[miqutoolkit] Failed to connect to Wayland display." << std::endl;
         return false;
     }
 
     m_registry = wl_display_get_registry(m_display);
     if (!m_registry) {
-        std::cerr << "[biwaytoolkit] Failed to get Wayland registry." << std::endl;
+        std::cerr << "[miqutoolkit] Failed to get Wayland registry." << std::endl;
         return false;
     }
 
@@ -58,7 +58,7 @@ bool AppEngine::init() {
     wl_display_roundtrip(m_display);
 
     if (!m_compositor || !m_shm || !m_layer_shell) {
-        std::cerr << "[biwaytoolkit] Missing required Wayland globals (compositor, shm, or layer_shell)." << std::endl;
+        std::cerr << "[miqutoolkit] Missing required Wayland globals (compositor, shm, or layer_shell)." << std::endl;
         return false;
     }
 
@@ -115,4 +115,4 @@ void AppEngine::quit(int exit_code) {
     m_running = false;
 }
 
-} // namespace biway
+} // namespace miqu

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "biwaytoolkit/view/view.hpp"
+#include "miqutoolkit/view/view.hpp"
 #include <string>
 #include <functional>
 
-namespace biway {
+namespace miqu {
 
 class EditText : public View {
 public:
@@ -125,4 +125,4 @@ private:
     std::shared_ptr<EditText> m_view;
 };
 
-} // namespace biway
+} // namespace miqu
