@@ -3,3 +3,4 @@ Build/
 build_*/
 .cache/
 compile_commands.json
+git_token_password

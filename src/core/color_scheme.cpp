@@ -84,7 +84,16 @@ static void load_config_file_internal(const std::string& path, ColorScheme::Colo
         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
 
         // Strip inline comments from values
-        size_t c_pos = val.find('#');
+        size_t c_pos = std::string::npos;
+        if (!val.empty() && val[0] == '#') {
+            size_t space_pos = val.find_first_of(" \t");
+            if (space_pos != std::string::npos) {
+                c_pos = val.find('#', space_pos);
+            }
+        } else {
+            c_pos = val.find('#');
+        }
+
         if (c_pos != std::string::npos) {
             val = trim_str(val.substr(0, c_pos));
         }
