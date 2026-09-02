@@ -2,6 +2,7 @@
 
 // Core Engine & Types
 #include "miqutoolkit/core/types.hpp"
+#include "miqutoolkit/core/grid_item.hpp"
 #include "miqutoolkit/core/geometry.hpp"
 #include "miqutoolkit/core/color.hpp"
 #include "miqutoolkit/core/color_scheme.hpp"
@@ -26,5 +27,8 @@
 
 // System Services
 #include "miqutoolkit/system/package_manager.hpp"
+#include "miqutoolkit/system/binary_manager.hpp"
+#include "miqutoolkit/system/window_manager.hpp"
+#include "miqutoolkit/system/workspace_manager.hpp"
 
 namespace miqutoolkit = miqu;

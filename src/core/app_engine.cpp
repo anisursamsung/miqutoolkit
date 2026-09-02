@@ -1,9 +1,13 @@
 #include "miqutoolkit/core/app_engine.hpp"
 #include "miqutoolkit/core/window.hpp"
+#include "miqutoolkit/system/window_manager.hpp"
+#include "miqutoolkit/system/workspace_manager.hpp"
 #include <iostream>
 #include <cstring>
 #include <algorithm>
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
+#include "ext-workspace-v1-client-protocol.h"
 
 namespace miqu {
 
@@ -12,6 +16,17 @@ AppEngine* AppEngine::s_instance = nullptr;
 const struct wl_registry_listener AppEngine::s_registry_listener = {
     .global = registry_global,
     .global_remove = registry_global_remove,
+};
+
+const struct wl_seat_listener AppEngine::s_seat_listener = {
+    .capabilities = [](void* data, struct wl_seat*, uint32_t caps) {
+        auto* self = static_cast<AppEngine*>(data);
+        self->m_seat_capabilities = caps;
+        for (auto& win : self->m_windows) {
+            if (win) win->update_seat_capabilities(caps);
+        }
+    },
+    .name = [](void*, struct wl_seat*, const char*) {}
 };
 
 std::shared_ptr<AppEngine> AppEngine::create() {
@@ -29,6 +44,10 @@ std::shared_ptr<AppEngine> AppEngine::create() {
 }
 
 AppEngine::~AppEngine() {
+    m_windows.clear();
+
+    if (m_ext_workspace_manager) ext_workspace_manager_v1_destroy(m_ext_workspace_manager);
+    if (m_foreign_toplevel_manager) zwlr_foreign_toplevel_manager_v1_destroy(m_foreign_toplevel_manager);
     if (m_seat) wl_seat_destroy(m_seat);
     if (m_layer_shell) zwlr_layer_shell_v1_destroy(m_layer_shell);
     if (m_shm) wl_shm_destroy(m_shm);
@@ -62,6 +81,8 @@ bool AppEngine::init() {
         return false;
     }
 
+    wl_display_roundtrip(m_display);
+
     return true;
 }
 
@@ -77,9 +98,18 @@ void AppEngine::registry_global(void* data, struct wl_registry* registry, uint32
     } else if (std::strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
         self->m_layer_shell = static_cast<struct zwlr_layer_shell_v1*>(
             wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, std::min(version, 4u)));
+    } else if (std::strcmp(interface, zwlr_foreign_toplevel_manager_v1_interface.name) == 0) {
+        self->m_foreign_toplevel_manager = static_cast<struct zwlr_foreign_toplevel_manager_v1*>(
+            wl_registry_bind(registry, name, &zwlr_foreign_toplevel_manager_v1_interface, std::min(version, 3u)));
+        WindowManager::get()->init_protocol(self->m_foreign_toplevel_manager);
+    } else if (std::strcmp(interface, ext_workspace_manager_v1_interface.name) == 0) {
+        self->m_ext_workspace_manager = static_cast<struct ext_workspace_manager_v1*>(
+            wl_registry_bind(registry, name, &ext_workspace_manager_v1_interface, 1));
+        WorkspaceManager::get()->init_protocol(self->m_ext_workspace_manager);
     } else if (std::strcmp(interface, wl_seat_interface.name) == 0) {
         self->m_seat = static_cast<struct wl_seat*>(
             wl_registry_bind(registry, name, &wl_seat_interface, std::min(version, 7u)));
+        wl_seat_add_listener(self->m_seat, &s_seat_listener, self);
     }
 }
 
@@ -88,6 +118,9 @@ void AppEngine::registry_global_remove(void* data, struct wl_registry* registry,
 
 void AppEngine::register_window(std::shared_ptr<Window> win) {
     m_windows.push_back(win);
+    if (win && m_seat_capabilities != 0) {
+        win->update_seat_capabilities(m_seat_capabilities);
+    }
 }
 
 void AppEngine::unregister_window(std::shared_ptr<Window> win) {

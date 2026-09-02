@@ -58,11 +58,12 @@ public:
     int get_height() const { return m_height; }
     const Rect& get_allocated_content_bounds() const { return m_allocated_content_bounds; }
 
+    void update_seat_capabilities(uint32_t caps);
+
 private:
     void render_frame();
 
     static const struct zwlr_layer_surface_v1_listener s_layer_surface_listener;
-    static const struct wl_seat_listener s_seat_listener;
     static const struct wl_pointer_listener s_pointer_listener;
     static const struct wl_keyboard_listener s_keyboard_listener;
     static const struct wl_callback_listener s_frame_listener;

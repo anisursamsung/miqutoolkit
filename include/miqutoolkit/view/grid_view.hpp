@@ -1,21 +1,12 @@
 #pragma once
 
 #include "miqutoolkit/view/view.hpp"
+#include "miqutoolkit/core/grid_item.hpp"
 #include <string>
 #include <vector>
 #include <functional>
 
 namespace miqu {
-
-struct AppInfo {
-    std::string id;
-    std::string title;
-    std::string subtitle;
-    std::string icon_name;
-    std::string icon_path;
-    std::string exec_cmd;
-    bool terminal = false;
-};
 
 enum class StretchMode {
     None,
@@ -35,12 +26,14 @@ public:
     void set_vertical_spacing(int sy) { m_space_y = sy; }
     void set_stretch_mode(StretchMode mode) { m_stretch_mode = mode; }
 
-    void set_adapter(std::vector<AppInfo> items);
+    void set_adapter(std::vector<GridItem> items);
     void set_filter_query(const std::string& filter);
 
-    void set_on_item_click_listener(std::function<void(const AppInfo&)> cb) { m_on_item_click = std::move(cb); }
+    void set_on_item_click_listener(std::function<void(const GridItem&)> cb) { m_on_item_click = std::move(cb); }
 
-    const AppInfo* get_selected_item() const;
+    void set_selected_index(int index) { m_selected_index = index; }
+    int get_selected_index() const { return m_selected_index; }
+    const GridItem* get_selected_item() const;
 
     void draw(cairo_t* cr, const Rect& bounds) override;
     bool on_key(const KeyPressEvent& event) override;
@@ -70,11 +63,11 @@ private:
     mutable int m_effective_cols = 5;
     mutable int m_effective_cell_w = 100;
 
-    std::vector<AppInfo> m_all_items;
-    std::vector<AppInfo> m_filtered_items;
+    std::vector<GridItem> m_all_items;
+    std::vector<GridItem> m_filtered_items;
     std::string m_filter_query;
 
-    std::function<void(const AppInfo&)> m_on_item_click;
+    std::function<void(const GridItem&)> m_on_item_click;
 };
 
 class GridViewBuilder : public std::enable_shared_from_this<GridViewBuilder> {
@@ -116,7 +109,7 @@ public:
         return shared_from_this();
     }
 
-    std::shared_ptr<GridViewBuilder> onItemClick(std::function<void(const AppInfo&)> cb) {
+    std::shared_ptr<GridViewBuilder> onItemClick(std::function<void(const GridItem&)> cb) {
         m_view->set_on_item_click_listener(std::move(cb));
         return shared_from_this();
     }
@@ -158,6 +151,11 @@ public:
 
     std::shared_ptr<GridViewBuilder> margin(int l, int t, int r, int b) {
         m_view->set_margin(l, t, r, b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<GridViewBuilder> selectedIndex(int index) {
+        m_view->set_selected_index(index);
         return shared_from_this();
     }
 

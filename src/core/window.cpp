@@ -39,27 +39,27 @@ const struct zwlr_layer_surface_v1_listener Window::s_layer_surface_listener = {
     }
 };
 
-const struct wl_seat_listener Window::s_seat_listener = {
-    .capabilities = [](void* data, struct wl_seat* seat, uint32_t caps) {
-        auto* self = static_cast<Window*>(data);
-        if ((caps & WL_SEAT_CAPABILITY_POINTER) && !self->m_pointer) {
-            self->m_pointer = wl_seat_get_pointer(seat);
-            wl_pointer_add_listener(self->m_pointer, &s_pointer_listener, self);
-        } else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && self->m_pointer) {
-            wl_pointer_destroy(self->m_pointer);
-            self->m_pointer = nullptr;
-        }
+void Window::update_seat_capabilities(uint32_t caps) {
+    auto* engine = AppEngine::instance();
+    if (!engine || !engine->get_seat()) return;
+    struct wl_seat* seat = engine->get_seat();
 
-        if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !self->m_keyboard) {
-            self->m_keyboard = wl_seat_get_keyboard(seat);
-            wl_keyboard_add_listener(self->m_keyboard, &s_keyboard_listener, self);
-        } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && self->m_keyboard) {
-            wl_keyboard_destroy(self->m_keyboard);
-            self->m_keyboard = nullptr;
-        }
-    },
-    .name = [](void*, struct wl_seat*, const char*) {}
-};
+    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !m_pointer) {
+        m_pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(m_pointer, &s_pointer_listener, this);
+    } else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && m_pointer) {
+        wl_pointer_destroy(m_pointer);
+        m_pointer = nullptr;
+    }
+
+    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !m_keyboard) {
+        m_keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(m_keyboard, &s_keyboard_listener, this);
+    } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && m_keyboard) {
+        wl_keyboard_destroy(m_keyboard);
+        m_keyboard = nullptr;
+    }
+}
 
 const struct wl_pointer_listener Window::s_pointer_listener = {
     .enter = [](void* data, struct wl_pointer*, uint32_t serial, struct wl_surface* surface, wl_fixed_t sx, wl_fixed_t sy) {
@@ -257,8 +257,8 @@ bool Window::init() {
 
     zwlr_layer_surface_v1_add_listener(m_layer_surface, &s_layer_surface_listener, this);
 
-    if (engine->get_seat()) {
-        wl_seat_add_listener(engine->get_seat(), &s_seat_listener, this);
+    if (engine->get_seat() && engine->get_seat_capabilities() != 0) {
+        update_seat_capabilities(engine->get_seat_capabilities());
     }
 
     zwlr_layer_surface_v1_set_anchor(m_layer_surface, m_anchors);

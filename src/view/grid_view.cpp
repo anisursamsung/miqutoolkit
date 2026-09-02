@@ -18,7 +18,7 @@ static std::string str_to_lower(std::string s) {
 GridView::GridView() {
 }
 
-void GridView::set_adapter(std::vector<AppInfo> items) {
+void GridView::set_adapter(std::vector<GridItem> items) {
     m_all_items = std::move(items);
     set_filter_query(m_filter_query);
 }
@@ -50,7 +50,7 @@ void GridView::set_filter_query(const std::string& query) {
     m_scroll_y = 0.0;
 }
 
-const AppInfo* GridView::get_selected_item() const {
+const GridItem* GridView::get_selected_item() const {
     if (m_selected_index >= 0 && m_selected_index < static_cast<int>(m_filtered_items.size())) {
         return &m_filtered_items[m_selected_index];
     }
@@ -210,8 +210,36 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
                                   theme->colors.on_surface.b,
                                   theme->colors.on_surface.a);
         pango_cairo_show_layout(cr, layout);
-
         g_object_unref(layout);
+
+        // Draw Subtitle if present (e.g. "● Active", "Occupied", "Empty")
+        if (!item.subtitle.empty()) {
+            PangoLayout* sub_layout = pango_cairo_create_layout(cr);
+            pango_layout_set_text(sub_layout, item.subtitle.c_str(), -1);
+
+            PangoFontDescription* sub_desc = pango_font_description_from_string("Sans 8");
+            pango_layout_set_font_description(sub_layout, sub_desc);
+            pango_font_description_free(sub_desc);
+
+            pango_layout_set_alignment(sub_layout, PANGO_ALIGN_CENTER);
+            pango_layout_set_width(sub_layout, std::max(0, cell_w - 8) * PANGO_SCALE);
+            pango_layout_set_ellipsize(sub_layout, PANGO_ELLIPSIZE_END);
+
+            cairo_move_to(cr, cell_x + 4, cell_y + 80);
+            if (item.subtitle.find("Active") != std::string::npos) {
+                cairo_set_source_rgba(cr, theme->colors.primary.r,
+                                          theme->colors.primary.g,
+                                          theme->colors.primary.b,
+                                          1.0f);
+            } else {
+                cairo_set_source_rgba(cr, theme->colors.on_surface_variant.r,
+                                          theme->colors.on_surface_variant.g,
+                                          theme->colors.on_surface_variant.b,
+                                          0.75f);
+            }
+            pango_cairo_show_layout(cr, sub_layout);
+            g_object_unref(sub_layout);
+        }
     }
 
     // Draw Visual Scrollbar Thumb Indicator if content overflows

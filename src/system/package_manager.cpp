@@ -1,4 +1,5 @@
 #include "miqutoolkit/system/package_manager.hpp"
+#include "miqutoolkit/system/binary_manager.hpp"
 #include "miqutoolkit/view/image_view.hpp"
 #include <filesystem>
 #include <fstream>
@@ -64,8 +65,8 @@ std::string PackageManager::clean_exec(const std::string& raw) {
     return result;
 }
 
-std::vector<AppInfo> PackageManager::get_installed_applications() {
-    std::vector<AppInfo> items;
+std::vector<GridItem> PackageManager::get_installed_applications() {
+    std::vector<GridItem> items;
 
     const char* home = getenv("HOME");
     std::string home_str = home ? home : "";
@@ -174,7 +175,7 @@ std::vector<AppInfo> PackageManager::get_installed_applications() {
             std::string clean_command = clean_exec(exec);
             std::string subtitle = !generic_name.empty() ? generic_name : comment;
 
-            AppInfo item;
+            GridItem item;
             item.id = desktop_id;
             item.title = name;
             item.subtitle = subtitle;
@@ -187,27 +188,16 @@ std::vector<AppInfo> PackageManager::get_installed_applications() {
         }
     }
 
-    std::sort(items.begin(), items.end(), [](const AppInfo& a, const AppInfo& b) {
+    std::sort(items.begin(), items.end(), [](const GridItem& a, const GridItem& b) {
         return a.title < b.title;
     });
 
     return items;
 }
 
-void PackageManager::launch(const AppInfo& item) {
+void PackageManager::launch(const GridItem& item) {
     if (item.exec_cmd.empty()) return;
-
-    std::string cmd = item.exec_cmd;
-    if (item.terminal) {
-        cmd = "kitty -e " + cmd;
-    }
-
-    pid_t pid = fork();
-    if (pid == 0) {
-        setsid();
-        execl("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
-        _exit(1);
-    }
+    BinaryManager::launch_command(item.exec_cmd, item.terminal);
 }
 
 } // namespace miqu
