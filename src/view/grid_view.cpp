@@ -1,8 +1,7 @@
 #include "miqutoolkit/view/grid_view.hpp"
 #include "miqutoolkit/view/card_view.hpp"
-#include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/core/color_scheme.hpp"
-#include <pango/pangocairo.h>
+#include "miqutoolkit/core/window.hpp"
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
 #include <iostream>
@@ -10,49 +9,53 @@
 
 namespace miqu {
 
-static std::string str_to_lower(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-    return s;
-}
-
 GridView::GridView() {
 }
 
-void GridView::set_adapter(std::vector<GridItem> items) {
-    m_all_items = std::move(items);
-    set_filter_query(m_filter_query);
-}
-
-void GridView::set_filter_query(const std::string& query) {
-    m_filter_query = query;
-    m_filtered_items.clear();
-
-    if (m_filter_query.empty()) {
-        m_filtered_items = m_all_items;
-    } else {
-        std::string lower_query = str_to_lower(m_filter_query);
-        for (const auto& item : m_all_items) {
-            std::string lower_title = str_to_lower(item.title);
-            std::string lower_sub = str_to_lower(item.subtitle);
-            std::string lower_cmd = str_to_lower(item.exec_cmd);
-            std::string lower_id = str_to_lower(item.id);
-
-            if (lower_title.find(lower_query) != std::string::npos ||
-                lower_sub.find(lower_query) != std::string::npos ||
-                lower_cmd.find(lower_query) != std::string::npos ||
-                lower_id.find(lower_query) != std::string::npos) {
-                m_filtered_items.push_back(item);
-            }
-        }
-    }
-
-    m_selected_index = m_filtered_items.empty() ? -1 : 0;
+void GridView::set_items(std::vector<std::shared_ptr<View>> items) {
+    m_items = std::move(items);
+    m_selected_index = m_items.empty() ? -1 : 0;
     m_scroll_y = 0.0;
 }
 
-const GridItem* GridView::get_selected_item() const {
-    if (m_selected_index >= 0 && m_selected_index < static_cast<int>(m_filtered_items.size())) {
-        return &m_filtered_items[m_selected_index];
+void GridView::add_item(std::shared_ptr<View> item) {
+    if (item) {
+        m_items.push_back(std::move(item));
+        if (m_selected_index < 0 && !m_items.empty()) {
+            m_selected_index = 0;
+        }
+    }
+}
+
+void GridView::clear_items() {
+    m_items.clear();
+    m_selected_index = -1;
+    m_hovered_index = -1;
+    m_scroll_y = 0.0;
+}
+
+std::shared_ptr<View> GridView::get_item_at(size_t index) const {
+    if (index < m_items.size()) {
+        return m_items[index];
+    }
+    return nullptr;
+}
+
+void GridView::set_selected_index(int index) {
+    if (m_items.empty()) {
+        m_selected_index = -1;
+        return;
+    }
+    m_selected_index = std::clamp(index, 0, static_cast<int>(m_items.size()) - 1);
+    if (m_last_height > 0 && m_effective_cols > 0) {
+        int row_stride = m_cell_h + m_space_y;
+        ensure_visible(m_last_height, m_effective_cols, row_stride);
+    }
+}
+
+std::shared_ptr<View> GridView::get_selected_item() const {
+    if (m_selected_index >= 0 && m_selected_index < static_cast<int>(m_items.size())) {
+        return m_items[m_selected_index];
     }
     return nullptr;
 }
@@ -93,7 +96,7 @@ void GridView::ensure_visible(int viewport_height, int cols, int row_stride) {
         m_scroll_y = item_bottom - viewport_height;
     }
 
-    int total_rows = (static_cast<int>(m_filtered_items.size()) + cols - 1) / cols;
+    int total_rows = (static_cast<int>(m_items.size()) + cols - 1) / cols;
     double content_h = total_rows * row_stride - m_space_y;
     double max_scroll = std::max(0.0, content_h - viewport_height);
     m_scroll_y = std::clamp(m_scroll_y, 0.0, max_scroll);
@@ -116,7 +119,7 @@ int GridView::item_at(int lx, int ly, const Rect& bounds) const {
     if (col >= cols) return -1;
 
     int idx = row * cols + col;
-    if (idx >= 0 && idx < static_cast<int>(m_filtered_items.size())) {
+    if (idx >= 0 && idx < static_cast<int>(m_items.size())) {
         return idx;
     }
     return -1;
@@ -132,7 +135,7 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
     int cell_w = 0;
     int cols = compute_columns(bounds.width, cell_w);
 
-    int total_rows = (static_cast<int>(m_filtered_items.size()) + cols - 1) / cols;
+    int total_rows = (static_cast<int>(m_items.size()) + cols - 1) / cols;
     int row_stride = m_cell_h + m_space_y;
     double content_h = std::max(0, total_rows * row_stride - m_space_y);
     double max_scroll = std::max(0.0, content_h - bounds.height);
@@ -147,10 +150,12 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
     int end_row = std::min(total_rows, static_cast<int>((m_scroll_y + bounds.height) / row_stride) + 1);
 
     int start_idx = start_row * cols;
-    int end_idx = std::min(end_row * cols, static_cast<int>(m_filtered_items.size()));
+    int end_idx = std::min(end_row * cols, static_cast<int>(m_items.size()));
 
     for (int i = start_idx; i < end_idx; ++i) {
-        const auto& item = m_filtered_items[i];
+        const auto& item = m_items[i];
+        if (!item) continue;
+
         int grid_row = i / cols;
         int grid_col = i % cols;
 
@@ -161,7 +166,7 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
         bool is_selected = (i == m_selected_index);
         bool is_hovered = (i == m_hovered_index);
 
-        // Background
+        // Tile background (Selected / Hovered highlight)
         if (is_selected) {
             CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, 8.0);
             cairo_set_source_rgba(cr, theme->colors.primary_container.r,
@@ -186,60 +191,8 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
             cairo_fill(cr);
         }
 
-        // Draw App Icon
-        Rect icon_rect(cell_x + (cell_w - 48) / 2, static_cast<int>(cell_y) + 12, 48, 48);
-        ImageView icon_view(item.icon_path.empty() ? item.icon_name : item.icon_path);
-        icon_view.set_target_size(48);
-        icon_view.draw(cr, icon_rect);
-
-        // Draw App Title
-        PangoLayout* layout = pango_cairo_create_layout(cr);
-        pango_layout_set_text(layout, item.title.c_str(), -1);
-
-        PangoFontDescription* desc = pango_font_description_from_string("Sans 10");
-        pango_layout_set_font_description(layout, desc);
-        pango_font_description_free(desc);
-
-        pango_layout_set_alignment(layout, PANGO_ALIGN_CENTER);
-        pango_layout_set_width(layout, std::max(0, cell_w - 8) * PANGO_SCALE);
-        pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
-
-        cairo_move_to(cr, cell_x + 4, cell_y + 66);
-        cairo_set_source_rgba(cr, theme->colors.on_surface.r,
-                                  theme->colors.on_surface.g,
-                                  theme->colors.on_surface.b,
-                                  theme->colors.on_surface.a);
-        pango_cairo_show_layout(cr, layout);
-        g_object_unref(layout);
-
-        // Draw Subtitle if present (e.g. "● Active", "Occupied", "Empty")
-        if (!item.subtitle.empty()) {
-            PangoLayout* sub_layout = pango_cairo_create_layout(cr);
-            pango_layout_set_text(sub_layout, item.subtitle.c_str(), -1);
-
-            PangoFontDescription* sub_desc = pango_font_description_from_string("Sans 8");
-            pango_layout_set_font_description(sub_layout, sub_desc);
-            pango_font_description_free(sub_desc);
-
-            pango_layout_set_alignment(sub_layout, PANGO_ALIGN_CENTER);
-            pango_layout_set_width(sub_layout, std::max(0, cell_w - 8) * PANGO_SCALE);
-            pango_layout_set_ellipsize(sub_layout, PANGO_ELLIPSIZE_END);
-
-            cairo_move_to(cr, cell_x + 4, cell_y + 80);
-            if (item.subtitle.find("Active") != std::string::npos) {
-                cairo_set_source_rgba(cr, theme->colors.primary.r,
-                                          theme->colors.primary.g,
-                                          theme->colors.primary.b,
-                                          1.0f);
-            } else {
-                cairo_set_source_rgba(cr, theme->colors.on_surface_variant.r,
-                                          theme->colors.on_surface_variant.g,
-                                          theme->colors.on_surface_variant.b,
-                                          0.75f);
-            }
-            pango_cairo_show_layout(cr, sub_layout);
-            g_object_unref(sub_layout);
-        }
+        // Delegate drawing the cell content to the child View!
+        item->draw(cr, cell_rect);
     }
 
     // Draw Visual Scrollbar Thumb Indicator if content overflows
@@ -263,95 +216,29 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
     cairo_restore(cr);
 }
 
-bool GridView::on_key(const KeyPressEvent& event) {
-    if (!event.pressed) return false;
-    if (m_filtered_items.empty()) return false;
-
-    int cell_w = 0;
-    int cols = compute_columns(m_last_width > 0 ? m_last_width : 800, cell_w);
-    int total = static_cast<int>(m_filtered_items.size());
-    int row_stride = m_cell_h + m_space_y;
-
-    if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
-        if (m_selected_index >= 0 && m_selected_index < total) {
-            if (m_on_item_click) {
-                m_on_item_click(m_filtered_items[m_selected_index]);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    if (event.keysym == XKB_KEY_Right) {
-        m_selected_index = (m_selected_index + 1) % total;
-        if (m_last_height > 0) ensure_visible(m_last_height, cols, row_stride);
-        return true;
-    }
-
-    if (event.keysym == XKB_KEY_Left) {
-        m_selected_index = (m_selected_index - 1 + total) % total;
-        if (m_last_height > 0) ensure_visible(m_last_height, cols, row_stride);
-        return true;
-    }
-
-    if (event.keysym == XKB_KEY_Down) {
-        if (m_selected_index + cols < total) {
-            m_selected_index += cols;
-        } else {
-            m_selected_index = (m_selected_index % cols);
-        }
-        if (m_last_height > 0) ensure_visible(m_last_height, cols, row_stride);
-        return true;
-    }
-
-    if (event.keysym == XKB_KEY_Up) {
-        if (m_selected_index - cols >= 0) {
-            m_selected_index -= cols;
-        } else {
-            int last_row_start = (total / cols) * cols;
-            int candidate = last_row_start + (m_selected_index % cols);
-            if (candidate >= total) candidate -= cols;
-            m_selected_index = std::max(0, candidate);
-        }
-        if (m_last_height > 0) ensure_visible(m_last_height, cols, row_stride);
-        return true;
-    }
-
-    if (event.keysym == XKB_KEY_Page_Down) {
-        m_selected_index = std::min(total - 1, m_selected_index + cols * 3);
-        if (m_last_height > 0) ensure_visible(m_last_height, cols, row_stride);
-        return true;
-    }
-
-    if (event.keysym == XKB_KEY_Page_Up) {
-        m_selected_index = std::max(0, m_selected_index - cols * 3);
-        if (m_last_height > 0) ensure_visible(m_last_height, cols, row_stride);
-        return true;
-    }
-
-    return false;
-}
-
 bool GridView::on_mouse_move(int lx, int ly, const Rect& bounds) {
-    int idx = item_at(lx, ly, bounds);
-    if (idx != m_hovered_index) {
-        m_hovered_index = idx;
+    int old_hover = m_hovered_index;
+    m_hovered_index = item_at(lx, ly, bounds);
+
+    if (m_hovered_index != old_hover) {
+        if (get_window()) {
+            get_window()->schedule_redraw();
+        }
         return true;
     }
     return false;
 }
 
 bool GridView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
-    if (button != MouseButton::Left) return false;
-
-    int idx = item_at(lx, ly, bounds);
-    if (idx >= 0 && idx < static_cast<int>(m_filtered_items.size())) {
-        if (pressed) {
+    if (button == MouseButton::Left && pressed) {
+        int idx = item_at(lx, ly, bounds);
+        if (idx >= 0 && idx < static_cast<int>(m_items.size())) {
             m_selected_index = idx;
-            return true;
-        } else {
             if (m_on_item_click) {
-                m_on_item_click(m_filtered_items[idx]);
+                m_on_item_click(idx, m_items[idx]);
+            }
+            if (get_window()) {
+                get_window()->schedule_redraw();
             }
             return true;
         }
@@ -360,22 +247,85 @@ bool GridView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
 }
 
 bool GridView::on_scroll(double delta) {
-    if (m_filtered_items.empty() || m_last_height <= 0) return false;
-
     int cell_w = 0;
-    int cols = compute_columns(m_last_width > 0 ? m_last_width : 800, cell_w);
-
-    int total_rows = (static_cast<int>(m_filtered_items.size()) + cols - 1) / cols;
+    int cols = compute_columns(m_last_width, cell_w);
+    int total_rows = (static_cast<int>(m_items.size()) + cols - 1) / cols;
     int row_stride = m_cell_h + m_space_y;
-    double content_h = std::max(0, total_rows * row_stride - m_space_y);
+    double content_h = total_rows * row_stride - m_space_y;
     double max_scroll = std::max(0.0, content_h - m_last_height);
 
-    if (max_scroll <= 0.0) return false;
+    double old_scroll = m_scroll_y;
+    m_scroll_y = std::clamp(m_scroll_y + delta * 30.0, 0.0, max_scroll);
 
-    double prev_scroll = m_scroll_y;
-    m_scroll_y = std::clamp(m_scroll_y + delta * 2.5, 0.0, max_scroll);
+    if (m_scroll_y != old_scroll) {
+        if (get_window()) {
+            get_window()->schedule_redraw();
+        }
+        return true;
+    }
+    return false;
+}
 
-    return (m_scroll_y != prev_scroll);
+bool GridView::on_key(const KeyPressEvent& event) {
+    if (!event.pressed || m_items.empty()) return false;
+
+    int cell_w = 0;
+    int cols = compute_columns(m_last_width, cell_w);
+    int total = static_cast<int>(m_items.size());
+    int old_sel = m_selected_index;
+
+    switch (event.keysym) {
+        case XKB_KEY_Left:
+            if (m_selected_index > 0) m_selected_index--;
+            break;
+        case XKB_KEY_Right:
+            if (m_selected_index < total - 1) m_selected_index++;
+            break;
+        case XKB_KEY_Up:
+            if (m_selected_index - cols >= 0) m_selected_index -= cols;
+            break;
+        case XKB_KEY_Down:
+            if (m_selected_index + cols < total) m_selected_index += cols;
+            else if (m_selected_index < total - 1) m_selected_index = total - 1;
+            break;
+        case XKB_KEY_Home:
+            m_selected_index = 0;
+            break;
+        case XKB_KEY_End:
+            m_selected_index = total - 1;
+            break;
+        case XKB_KEY_Return:
+        case XKB_KEY_KP_Enter:
+            if (m_selected_index >= 0 && m_selected_index < total) {
+                if (m_on_item_click) {
+                    m_on_item_click(m_selected_index, m_items[m_selected_index]);
+                }
+                return true;
+            }
+            break;
+        case XKB_KEY_Tab:
+            if (event.modifiers & static_cast<uint32_t>(KeyboardModifier::Shift)) {
+                if (m_selected_index > 0) m_selected_index--;
+                else m_selected_index = total - 1;
+            } else {
+                if (m_selected_index < total - 1) m_selected_index++;
+                else m_selected_index = 0;
+            }
+            break;
+        default:
+            return false;
+    }
+
+    if (m_selected_index != old_sel) {
+        int row_stride = m_cell_h + m_space_y;
+        ensure_visible(m_last_height, cols, row_stride);
+        if (get_window()) {
+            get_window()->schedule_redraw();
+        }
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace miqu

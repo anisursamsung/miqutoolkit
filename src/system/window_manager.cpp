@@ -1,6 +1,5 @@
 #include "miqutoolkit/system/window_manager.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
-#include "miqutoolkit/view/image_view.hpp"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include <algorithm>
 #include <iostream>
@@ -12,6 +11,10 @@ static WindowManager* s_window_manager = nullptr;
 WindowManager* WindowManager::get() {
     if (!s_window_manager) {
         s_window_manager = new WindowManager();
+        auto* engine = AppEngine::instance();
+        if (engine && engine->get_foreign_toplevel_manager()) {
+            s_window_manager->init_protocol(engine->get_foreign_toplevel_manager());
+        }
     }
     return s_window_manager;
 }
@@ -67,18 +70,6 @@ void WindowInfo::set_maximized(bool max) {
     }
 }
 
-GridItem WindowInfo::to_grid_item() const {
-    GridItem info;
-    info.id = std::to_string(id);
-    info.title = !title.empty() ? title : (!app_id.empty() ? app_id : "Window");
-    info.subtitle = app_id.empty() ? (is_active ? "Active" : "") : (app_id + (is_active ? " • Active" : ""));
-    info.icon_name = app_id;
-    info.icon_path = icon_path;
-    info.exec_cmd = "";
-    info.terminal = false;
-    return info;
-}
-
 const struct ::zwlr_foreign_toplevel_handle_v1_listener WindowManager::s_handle_listener = {
     .title = [](void* data, struct zwlr_foreign_toplevel_handle_v1*, const char* title) {
         auto* win = static_cast<WindowInfo*>(data);
@@ -87,9 +78,6 @@ const struct ::zwlr_foreign_toplevel_handle_v1_listener WindowManager::s_handle_
     .app_id = [](void* data, struct zwlr_foreign_toplevel_handle_v1*, const char* app_id) {
         auto* win = static_cast<WindowInfo*>(data);
         win->app_id = app_id ? app_id : "";
-        if (!win->app_id.empty()) {
-            win->icon_path = ImageView::resolve_icon_path(win->app_id);
-        }
     },
     .output_enter = [](void*, struct zwlr_foreign_toplevel_handle_v1*, struct wl_output*) {},
     .output_leave = [](void*, struct zwlr_foreign_toplevel_handle_v1*, struct wl_output*) {},
@@ -119,10 +107,7 @@ const struct ::zwlr_foreign_toplevel_handle_v1_listener WindowManager::s_handle_
     },
     .done = [](void* data, struct zwlr_foreign_toplevel_handle_v1*) {
         auto* win = static_cast<WindowInfo*>(data);
-        if (win->icon_path.empty() && !win->app_id.empty()) {
-            win->icon_path = ImageView::resolve_icon_path(win->app_id);
-        }
-        if (win->manager) {
+        if (win && win->manager) {
             win->manager->notify_changed();
         }
     },
@@ -158,6 +143,7 @@ const struct ::zwlr_foreign_toplevel_manager_v1_listener WindowManager::s_manage
 };
 
 void WindowManager::init_protocol(struct zwlr_foreign_toplevel_manager_v1* mgr) {
+    if (m_manager == mgr) return;
     m_manager = mgr;
     if (m_manager) {
         zwlr_foreign_toplevel_manager_v1_add_listener(m_manager, &s_manager_listener, this);

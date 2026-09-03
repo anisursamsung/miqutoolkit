@@ -1,6 +1,5 @@
 #pragma once
 
-#include "miqutoolkit/core/grid_item.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -24,8 +23,6 @@ struct WorkspaceInfo {
     bool is_urgent = false;
 
     void activate();
-    GridItem to_grid_item() const;
-    GridItem to_app_info() const { return to_grid_item(); }
 
     struct ext_workspace_handle_v1* get_handle() const { return handle; }
 

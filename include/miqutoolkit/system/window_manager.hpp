@@ -1,6 +1,5 @@
 #pragma once
 
-#include "miqutoolkit/core/grid_item.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -20,7 +19,6 @@ struct WindowInfo {
     uint64_t id = 0;
     std::string title;
     std::string app_id;
-    std::string icon_path;
     bool is_active = false;
     bool is_minimized = false;
     bool is_maximized = false;
@@ -30,9 +28,6 @@ struct WindowInfo {
     void close();
     void set_minimized(bool minimized);
     void set_maximized(bool maximized);
-
-    GridItem to_grid_item() const;
-    GridItem to_app_info() const { return to_grid_item(); }
 
     struct zwlr_foreign_toplevel_handle_v1* get_handle() const { return handle; }
 

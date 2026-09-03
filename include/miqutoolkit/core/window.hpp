@@ -78,8 +78,8 @@ private:
     int m_content_w = 0;
     int m_content_h = 0;
     bool m_dim_backdrop = false;
-    bool m_close_on_click_outside = true;
-    bool m_close_on_escape = true;
+    bool m_close_on_click_outside = false;
+    bool m_close_on_escape = false;
 
     bool m_configured = false;
     bool m_needs_redraw = false;

@@ -322,8 +322,8 @@ void Window::render_frame() {
     if (m_root_view && m_root_view->is_visible()) {
         Rect content_bounds(0, 0, m_width, m_height);
         if (m_content_w > 0 && m_content_h > 0) {
-            int cw = std::min(m_content_w, m_width - 40);
-            int ch = std::min(m_content_h, m_height - 40);
+            int cw = std::min(m_content_w, m_width);
+            int ch = std::min(m_content_h, m_height);
             int cx = (m_width - cw) / 2;
             int cy = (m_height - ch) / 2;
             content_bounds = Rect(cx, cy, cw, ch);

@@ -89,8 +89,6 @@ add_library(miqutoolkit SHARED
     src/view/edit_text.cpp
     src/view/search_view.cpp
     src/view/grid_view.cpp
-    src/system/package_manager.cpp
-    src/system/binary_manager.cpp
     src/system/window_manager.cpp
     src/system/workspace_manager.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h

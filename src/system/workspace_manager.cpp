@@ -1,6 +1,5 @@
 #include "miqutoolkit/system/workspace_manager.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
-#include "miqutoolkit/view/image_view.hpp"
 #include "ext-workspace-v1-client-protocol.h"
 #include <algorithm>
 #include <iostream>
@@ -12,6 +11,10 @@ static WorkspaceManager* s_workspace_manager = nullptr;
 WorkspaceManager* WorkspaceManager::get() {
     if (!s_workspace_manager) {
         s_workspace_manager = new WorkspaceManager();
+        auto* engine = AppEngine::instance();
+        if (engine && engine->get_workspace_manager_protocol()) {
+            s_workspace_manager->init_protocol(engine->get_workspace_manager_protocol());
+        }
     }
     return s_workspace_manager;
 }
@@ -31,28 +34,6 @@ void WorkspaceInfo::activate() {
     if (engine) {
         wl_display_flush(engine->get_display());
     }
-}
-
-GridItem WorkspaceInfo::to_grid_item() const {
-    GridItem info;
-    info.id = std::to_string(id);
-    info.title = "Workspace " + (!name.empty() ? name : std::to_string(id));
-    if (is_active) {
-        info.subtitle = "● Active";
-    } else if (!is_empty) {
-        info.subtitle = "Occupied";
-    } else {
-        info.subtitle = "Empty";
-    }
-    info.icon_name = "preferences-desktop-workspaces";
-    std::string icon = ImageView::resolve_icon_path("preferences-desktop-workspaces");
-    if (icon.empty()) {
-        icon = ImageView::resolve_icon_path("desktop");
-    }
-    info.icon_path = icon;
-    info.exec_cmd = "";
-    info.terminal = false;
-    return info;
 }
 
 const struct ::ext_workspace_handle_v1_listener WorkspaceManager::s_handle_listener = {
@@ -111,6 +92,7 @@ const struct ::ext_workspace_manager_v1_listener WorkspaceManager::s_manager_lis
 };
 
 void WorkspaceManager::init_protocol(struct ext_workspace_manager_v1* mgr) {
+    if (m_manager == mgr) return;
     m_manager = mgr;
     if (m_manager) {
         ext_workspace_manager_v1_add_listener(m_manager, &s_manager_listener, this);

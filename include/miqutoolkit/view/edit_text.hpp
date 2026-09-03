@@ -36,7 +36,7 @@ public:
 
 private:
     std::string m_text;
-    std::string m_hint = "Type to search...";
+    std::string m_hint = "";
     int m_cursor_pos = 0;
     bool m_focused = true;
     bool m_draw_background = true;

@@ -1,9 +1,8 @@
 #pragma once
 
 #include "miqutoolkit/view/view.hpp"
-#include "miqutoolkit/core/grid_item.hpp"
-#include <string>
 #include <vector>
+#include <memory>
 #include <functional>
 
 namespace miqu {
@@ -17,6 +16,7 @@ enum class StretchMode {
 class GridView : public View {
 public:
     GridView();
+    ~GridView() override = default;
 
     void set_num_columns(int cols) { m_cols = std::max(1, cols); m_auto_fit = false; }
     void set_auto_fit(int min_column_width = 100) { m_min_col_w = std::max(20, min_column_width); m_auto_fit = true; }
@@ -26,14 +26,22 @@ public:
     void set_vertical_spacing(int sy) { m_space_y = sy; }
     void set_stretch_mode(StretchMode mode) { m_stretch_mode = mode; }
 
-    void set_adapter(std::vector<GridItem> items);
-    void set_filter_query(const std::string& filter);
+    // Item management
+    void set_items(std::vector<std::shared_ptr<View>> items);
+    void add_item(std::shared_ptr<View> item);
+    void clear_items();
+    size_t get_item_count() const { return m_items.size(); }
+    std::shared_ptr<View> get_item_at(size_t index) const;
 
-    void set_on_item_click_listener(std::function<void(const GridItem&)> cb) { m_on_item_click = std::move(cb); }
-
-    void set_selected_index(int index) { m_selected_index = index; }
+    // Selection
+    void set_selected_index(int index);
     int get_selected_index() const { return m_selected_index; }
-    const GridItem* get_selected_item() const;
+    std::shared_ptr<View> get_selected_item() const;
+
+    // Event listener
+    void set_on_item_click_listener(std::function<void(size_t index, std::shared_ptr<View> item)> cb) {
+        m_on_item_click = std::move(cb);
+    }
 
     void draw(cairo_t* cr, const Rect& bounds) override;
     bool on_key(const KeyPressEvent& event) override;
@@ -63,11 +71,8 @@ private:
     mutable int m_effective_cols = 5;
     mutable int m_effective_cell_w = 100;
 
-    std::vector<GridItem> m_all_items;
-    std::vector<GridItem> m_filtered_items;
-    std::string m_filter_query;
-
-    std::function<void(const GridItem&)> m_on_item_click;
+    std::vector<std::shared_ptr<View>> m_items;
+    std::function<void(size_t, std::shared_ptr<View>)> m_on_item_click;
 };
 
 class GridViewBuilder : public std::enable_shared_from_this<GridViewBuilder> {
@@ -109,53 +114,13 @@ public:
         return shared_from_this();
     }
 
-    std::shared_ptr<GridViewBuilder> onItemClick(std::function<void(const GridItem&)> cb) {
+    std::shared_ptr<GridViewBuilder> items(std::vector<std::shared_ptr<View>> items) {
+        m_view->set_items(std::move(items));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<GridViewBuilder> onItemClick(std::function<void(size_t, std::shared_ptr<View>)> cb) {
         m_view->set_on_item_click_listener(std::move(cb));
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> padding(const Padding& p) {
-        m_view->set_padding(p);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> padding(int uniform) {
-        m_view->set_padding(uniform);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> padding(int h, int v) {
-        m_view->set_padding(h, v);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> padding(int l, int t, int r, int b) {
-        m_view->set_padding(l, t, r, b);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> margin(const Margin& m) {
-        m_view->set_margin(m);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> margin(int uniform) {
-        m_view->set_margin(uniform);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> margin(int h, int v) {
-        m_view->set_margin(h, v);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> margin(int l, int t, int r, int b) {
-        m_view->set_margin(l, t, r, b);
-        return shared_from_this();
-    }
-
-    std::shared_ptr<GridViewBuilder> selectedIndex(int index) {
-        m_view->set_selected_index(index);
         return shared_from_this();
     }
 
