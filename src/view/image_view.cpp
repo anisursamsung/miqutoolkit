@@ -10,6 +10,7 @@
 #include <set>
 #include <algorithm>
 #include <iostream>
+#include <cmath>
 
 namespace miqu {
 
@@ -160,8 +161,16 @@ static void parse_index_theme(const std::string& theme_dir,
 std::string ImageView::resolve_icon_path(const std::string& icon_name) {
     if (icon_name.empty()) return "";
 
-    if ((icon_name[0] == '/' || icon_name[0] == '.') && fs::exists(icon_name)) {
-        return icon_name;
+    std::string path_str = icon_name;
+    if (path_str[0] == '~') {
+        const char* home = getenv("HOME");
+        if (home) {
+            path_str = std::string(home) + path_str.substr(1);
+        }
+    }
+
+    if ((path_str[0] == '/' || path_str[0] == '.') && fs::exists(path_str)) {
+        return path_str;
     }
 
     std::string user_theme = ColorScheme::get()->metrics.icon_theme;
@@ -298,22 +307,52 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
     return "";
 }
 
-static cairo_surface_t* load_surface(const std::string& path_or_name, int target_size) {
-    if (path_or_name.empty() || target_size <= 0) return nullptr;
-
-    std::string cache_key = path_or_name + "@" + std::to_string(target_size);
-    auto it = s_surface_cache.find(cache_key);
-    if (it != s_surface_cache.end() && it->second != nullptr) {
-        return it->second;
-    }
+static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w, int box_h, FitMode fit_mode, int target_size) {
+    if (path_or_name.empty() || box_w <= 0 || box_h <= 0) return nullptr;
 
     std::string resolved = ImageView::resolve_icon_path(path_or_name);
     if (resolved.empty() || !fs::exists(resolved)) {
         return nullptr;
     }
 
+    int req_w = box_w;
+    int req_h = box_h;
+    gboolean preserve_aspect = TRUE;
+
+    if (fit_mode == FitMode::Center) {
+        req_w = (target_size > 0) ? target_size : box_w;
+        req_h = (target_size > 0) ? target_size : box_h;
+        preserve_aspect = TRUE;
+    } else if (fit_mode == FitMode::Fill) {
+        req_w = box_w;
+        req_h = box_h;
+        preserve_aspect = FALSE;
+    } else if (fit_mode == FitMode::Cover) {
+        int orig_w = 0, orig_h = 0;
+        if (gdk_pixbuf_get_file_info(resolved.c_str(), &orig_w, &orig_h) && orig_w > 0 && orig_h > 0) {
+            double scale = std::max(static_cast<double>(box_w) / orig_w, static_cast<double>(box_h) / orig_h);
+            req_w = std::max(1, static_cast<int>(std::round(orig_w * scale)));
+            req_h = std::max(1, static_cast<int>(std::round(orig_h * scale)));
+        } else {
+            req_w = std::max(box_w, box_h);
+            req_h = req_w;
+        }
+        preserve_aspect = TRUE;
+    } else { // FitMode::Contain
+        req_w = box_w;
+        req_h = box_h;
+        preserve_aspect = TRUE;
+    }
+
+    std::string cache_key = resolved + "@" + std::to_string(req_w) + "x" + std::to_string(req_h) +
+                            (preserve_aspect ? "p" : "s");
+    auto it = s_surface_cache.find(cache_key);
+    if (it != s_surface_cache.end() && it->second != nullptr) {
+        return it->second;
+    }
+
     GError* error = nullptr;
-    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(resolved.c_str(), target_size, target_size, TRUE, &error);
+    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(resolved.c_str(), req_w, req_h, preserve_aspect, &error);
     if (!pixbuf) {
         if (error) g_error_free(error);
         return nullptr;
@@ -356,18 +395,25 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int target
 void ImageView::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    int max_dim = std::max(bounds.width, bounds.height);
-    cairo_surface_t* surf = load_surface(m_source, max_dim);
+    cairo_surface_t* surf = load_surface(m_source, bounds.width, bounds.height, m_fit_mode, m_target_size);
+
+    cairo_save(cr);
+
+    // Apply corner radius or rectangular clipping
+    if (m_corner_radius > 0) {
+        CardView::draw_rounded_rect(cr, bounds.x, bounds.y, bounds.width, bounds.height, m_corner_radius);
+        cairo_clip(cr);
+    } else {
+        cairo_rectangle(cr, bounds.x, bounds.y, bounds.width, bounds.height);
+        cairo_clip(cr);
+    }
 
     if (!surf) {
-        cairo_save(cr);
         cairo_set_source_rgba(cr, 0.20, 0.22, 0.32, 0.85);
-        CardView::draw_rounded_rect(cr, bounds.x + 2, bounds.y + 2, bounds.width - 4, bounds.height - 4, 6.0);
-        cairo_fill(cr);
+        cairo_fill_preserve(cr);
 
         cairo_set_source_rgba(cr, 0.40, 0.45, 0.65, 0.9);
         cairo_set_line_width(cr, 1.0);
-        CardView::draw_rounded_rect(cr, bounds.x + 2, bounds.y + 2, bounds.width - 4, bounds.height - 4, 6.0);
         cairo_stroke(cr);
         cairo_restore(cr);
         return;
@@ -379,7 +425,6 @@ void ImageView::draw(cairo_t* cr, const Rect& bounds) {
     double draw_x = bounds.x + (bounds.width - surf_w) / 2.0;
     double draw_y = bounds.y + (bounds.height - surf_h) / 2.0;
 
-    cairo_save(cr);
     cairo_set_source_surface(cr, surf, draw_x, draw_y);
     if (m_opacity < 1.0f) {
         cairo_paint_with_alpha(cr, m_opacity);
