@@ -11,16 +11,21 @@
 
 struct zwlr_layer_surface_v1;
 struct zwlr_layer_surface_v1_listener;
+struct xdg_surface;
+struct xdg_surface_listener;
+struct xdg_toplevel;
+struct xdg_toplevel_listener;
 
 namespace miqu {
 
 class AppEngine;
 
 enum class WindowRole {
-    LayerOverlay,
-    LayerTop,
-    LayerBottom,
-    LayerBackground,
+    Toplevel,        // Standard desktop app window (xdg-shell)
+    LayerOverlay,    // Modal overlays, lockscreen
+    LayerTop,        // Top bar, panel
+    LayerBottom,     // Bottom bar, dock
+    LayerBackground, // Wallpaper
 };
 
 class Window : public std::enable_shared_from_this<Window> {
@@ -36,6 +41,11 @@ public:
     std::shared_ptr<View> get_content_view() const { return m_root_view; }
 
     void set_role(WindowRole role) { m_role = role; }
+    void set_title(std::string title) { m_title = std::move(title); }
+    const std::string& get_title() const { return m_title; }
+    void set_app_id(std::string app_id) { m_app_id = std::move(app_id); }
+    const std::string& get_app_id() const { return m_app_id; }
+
     void set_keyboard_interactive(bool interactive) { m_kb_interactive = interactive; }
     void set_exclusive_zone(int32_t zone) { m_exclusive_zone = zone; }
     void set_preferred_size(int w, int h) { m_width = w; m_height = h; }
@@ -63,12 +73,17 @@ public:
 private:
     void render_frame();
 
-    static const struct zwlr_layer_surface_v1_listener s_layer_surface_listener;
+    static const struct ::zwlr_layer_surface_v1_listener s_layer_surface_listener;
+    static const struct ::xdg_surface_listener s_xdg_surface_listener;
+    static const struct ::xdg_toplevel_listener s_xdg_toplevel_listener;
     static const struct wl_pointer_listener s_pointer_listener;
     static const struct wl_keyboard_listener s_keyboard_listener;
     static const struct wl_callback_listener s_frame_listener;
 
-    WindowRole m_role = WindowRole::LayerOverlay;
+    WindowRole m_role = WindowRole::Toplevel;
+    std::string m_title = "miqutoolkit";
+    std::string m_app_id = "org.miqu.app";
+
     bool m_kb_interactive = true;
     int32_t m_exclusive_zone = -1;
     uint32_t m_anchors = 0;
@@ -87,6 +102,8 @@ private:
 
     struct wl_surface* m_surface = nullptr;
     struct zwlr_layer_surface_v1* m_layer_surface = nullptr;
+    struct xdg_surface* m_xdg_surface = nullptr;
+    struct xdg_toplevel* m_xdg_toplevel = nullptr;
     struct wl_pointer* m_pointer = nullptr;
     struct wl_keyboard* m_keyboard = nullptr;
     struct wl_callback* m_frame_callback = nullptr;
@@ -116,6 +133,16 @@ public:
 
     std::shared_ptr<WindowBuilder> role(WindowRole r) {
         m_window->set_role(r);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<WindowBuilder> title(std::string t) {
+        m_window->set_title(std::move(t));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<WindowBuilder> appId(std::string id) {
+        m_window->set_app_id(std::move(id));
         return shared_from_this();
     }
 

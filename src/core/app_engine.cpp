@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
@@ -12,6 +13,12 @@
 namespace miqu {
 
 AppEngine* AppEngine::s_instance = nullptr;
+
+const struct xdg_wm_base_listener AppEngine::s_wm_base_listener = {
+    .ping = [](void*, struct xdg_wm_base* wm_base, uint32_t serial) {
+        xdg_wm_base_pong(wm_base, serial);
+    }
+};
 
 const struct wl_registry_listener AppEngine::s_registry_listener = {
     .global = registry_global,
@@ -48,6 +55,7 @@ AppEngine::~AppEngine() {
 
     if (m_ext_workspace_manager) ext_workspace_manager_v1_destroy(m_ext_workspace_manager);
     if (m_foreign_toplevel_manager) zwlr_foreign_toplevel_manager_v1_destroy(m_foreign_toplevel_manager);
+    if (m_xdg_wm_base) xdg_wm_base_destroy(m_xdg_wm_base);
     if (m_seat) wl_seat_destroy(m_seat);
     if (m_layer_shell) zwlr_layer_shell_v1_destroy(m_layer_shell);
     if (m_shm) wl_shm_destroy(m_shm);
@@ -76,8 +84,8 @@ bool AppEngine::init() {
     wl_registry_add_listener(m_registry, &s_registry_listener, this);
     wl_display_roundtrip(m_display);
 
-    if (!m_compositor || !m_shm || !m_layer_shell) {
-        std::cerr << "[miqutoolkit] Missing required Wayland globals (compositor, shm, or layer_shell)." << std::endl;
+    if (!m_compositor || !m_shm || (!m_layer_shell && !m_xdg_wm_base)) {
+        std::cerr << "[miqutoolkit] Missing required Wayland globals (compositor, shm, and layer_shell or xdg_wm_base)." << std::endl;
         return false;
     }
 
@@ -95,6 +103,10 @@ void AppEngine::registry_global(void* data, struct wl_registry* registry, uint32
     } else if (std::strcmp(interface, wl_shm_interface.name) == 0) {
         self->m_shm = static_cast<struct wl_shm*>(
             wl_registry_bind(registry, name, &wl_shm_interface, 1));
+    } else if (std::strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        self->m_xdg_wm_base = static_cast<struct xdg_wm_base*>(
+            wl_registry_bind(registry, name, &xdg_wm_base_interface, 1));
+        xdg_wm_base_add_listener(self->m_xdg_wm_base, &s_wm_base_listener, self);
     } else if (std::strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
         self->m_layer_shell = static_cast<struct zwlr_layer_shell_v1*>(
             wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, std::min(version, 4u)));

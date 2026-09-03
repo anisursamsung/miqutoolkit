@@ -1,6 +1,7 @@
 #include "miqutoolkit/core/window.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
 #include "miqutoolkit/core/color_scheme.hpp"
+#include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include <sys/mman.h>
 #include <unistd.h>
@@ -10,6 +11,41 @@
 #include <algorithm>
 
 namespace miqu {
+
+const struct xdg_surface_listener Window::s_xdg_surface_listener = {
+    .configure = [](void* data, struct xdg_surface* surface, uint32_t serial) {
+        auto* self = static_cast<Window*>(data);
+        xdg_surface_ack_configure(surface, serial);
+
+        if (!self->m_shm_pool) {
+            self->m_shm_pool = std::make_unique<ShmPool>(AppEngine::instance()->get_shm(), self->m_width, self->m_height);
+        } else {
+            self->m_shm_pool->resize(self->m_width, self->m_height);
+        }
+
+        self->m_configured = true;
+        self->schedule_redraw();
+    }
+};
+
+const struct xdg_toplevel_listener Window::s_xdg_toplevel_listener = {
+    .configure = [](void* data, struct xdg_toplevel*, int32_t width, int32_t height, struct wl_array*) {
+        auto* self = static_cast<Window*>(data);
+        if (width > 0 && height > 0) {
+            self->m_width = width;
+            self->m_height = height;
+        }
+    },
+    .close = [](void* data, struct xdg_toplevel*) {
+        auto* self = static_cast<Window*>(data);
+        if (self->m_on_close) {
+            self->m_on_close();
+        }
+        self->close();
+    },
+    .configure_bounds = [](void*, struct xdg_toplevel*, int32_t, int32_t) {},
+    .wm_capabilities = [](void*, struct xdg_toplevel*, struct wl_array*) {}
+};
 
 const struct zwlr_layer_surface_v1_listener Window::s_layer_surface_listener = {
     .configure = [](void* data, struct zwlr_layer_surface_v1* surface, uint32_t serial, uint32_t w, uint32_t h) {
@@ -229,6 +265,8 @@ Window::~Window() {
     if (m_xkb_ctx) xkb_context_unref(m_xkb_ctx);
     if (m_pointer) wl_pointer_destroy(m_pointer);
     if (m_keyboard) wl_keyboard_destroy(m_keyboard);
+    if (m_xdg_toplevel) xdg_toplevel_destroy(m_xdg_toplevel);
+    if (m_xdg_surface) xdg_surface_destroy(m_xdg_surface);
     if (m_layer_surface) zwlr_layer_surface_v1_destroy(m_layer_surface);
     if (m_surface) wl_surface_destroy(m_surface);
 }
@@ -239,6 +277,39 @@ bool Window::init() {
 
     m_surface = wl_compositor_create_surface(engine->get_compositor());
     if (!m_surface) return false;
+
+    if (m_role == WindowRole::Toplevel) {
+        if (!engine->get_xdg_wm_base()) {
+            std::cerr << "[miqutoolkit] xdg_wm_base protocol not available for Toplevel window." << std::endl;
+            return false;
+        }
+
+        m_xdg_surface = xdg_wm_base_get_xdg_surface(engine->get_xdg_wm_base(), m_surface);
+        if (!m_xdg_surface) return false;
+        xdg_surface_add_listener(m_xdg_surface, &s_xdg_surface_listener, this);
+
+        m_xdg_toplevel = xdg_surface_get_toplevel(m_xdg_surface);
+        if (!m_xdg_toplevel) return false;
+        xdg_toplevel_add_listener(m_xdg_toplevel, &s_xdg_toplevel_listener, this);
+
+        xdg_toplevel_set_title(m_xdg_toplevel, m_title.c_str());
+        xdg_toplevel_set_app_id(m_xdg_toplevel, m_app_id.c_str());
+
+        if (engine->get_seat() && engine->get_seat_capabilities() != 0) {
+            update_seat_capabilities(engine->get_seat_capabilities());
+        }
+
+        wl_surface_commit(m_surface);
+        wl_display_roundtrip(engine->get_display());
+
+        engine->register_window(shared_from_this());
+        return true;
+    }
+
+    if (!engine->get_layer_shell()) {
+        std::cerr << "[miqutoolkit] zwlr_layer_shell_v1 protocol not available for Layer window." << std::endl;
+        return false;
+    }
 
     uint32_t layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
     if (m_role == WindowRole::LayerTop) layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
@@ -305,31 +376,39 @@ void Window::render_frame() {
     cairo_paint(buf->cr);
     cairo_restore(buf->cr);
 
-    // 1. Draw Dim Backdrop if enabled
-    if (m_dim_backdrop) {
-        auto theme = ColorScheme::get();
-        cairo_save(buf->cr);
-        cairo_set_source_rgba(buf->cr, theme->colors.backdrop.r,
-                                      theme->colors.backdrop.g,
-                                      theme->colors.backdrop.b,
-                                      theme->colors.backdrop.a);
-        cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
-        cairo_fill(buf->cr);
-        cairo_restore(buf->cr);
-    }
-
-    // 2. Draw Content View
-    if (m_root_view && m_root_view->is_visible()) {
-        Rect content_bounds(0, 0, m_width, m_height);
-        if (m_content_w > 0 && m_content_h > 0) {
-            int cw = std::min(m_content_w, m_width);
-            int ch = std::min(m_content_h, m_height);
-            int cx = (m_width - cw) / 2;
-            int cy = (m_height - ch) / 2;
-            content_bounds = Rect(cx, cy, cw, ch);
+    if (m_role == WindowRole::Toplevel) {
+        if (m_root_view && m_root_view->is_visible()) {
+            Rect content_bounds(0, 0, m_width, m_height);
+            m_allocated_content_bounds = content_bounds;
+            m_root_view->draw(buf->cr, content_bounds);
         }
-        m_allocated_content_bounds = content_bounds;
-        m_root_view->draw(buf->cr, content_bounds);
+    } else {
+        // 1. Draw Dim Backdrop if enabled
+        if (m_dim_backdrop) {
+            auto theme = ColorScheme::get();
+            cairo_save(buf->cr);
+            cairo_set_source_rgba(buf->cr, theme->colors.backdrop.r,
+                                          theme->colors.backdrop.g,
+                                          theme->colors.backdrop.b,
+                                          theme->colors.backdrop.a);
+            cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
+            cairo_fill(buf->cr);
+            cairo_restore(buf->cr);
+        }
+
+        // 2. Draw Content View
+        if (m_root_view && m_root_view->is_visible()) {
+            Rect content_bounds(0, 0, m_width, m_height);
+            if (m_content_w > 0 && m_content_h > 0) {
+                int cw = std::min(m_content_w, m_width);
+                int ch = std::min(m_content_h, m_height);
+                int cx = (m_width - cw) / 2;
+                int cy = (m_height - ch) / 2;
+                content_bounds = Rect(cx, cy, cw, ch);
+            }
+            m_allocated_content_bounds = content_bounds;
+            m_root_view->draw(buf->cr, content_bounds);
+        }
     }
 
     cairo_surface_flush(buf->cairo_surf);
@@ -349,6 +428,18 @@ void Window::close() {
     auto* engine = AppEngine::instance();
     if (engine) {
         engine->unregister_window(shared_from_this());
+    }
+    if (m_xdg_toplevel) {
+        xdg_toplevel_destroy(m_xdg_toplevel);
+        m_xdg_toplevel = nullptr;
+    }
+    if (m_xdg_surface) {
+        xdg_surface_destroy(m_xdg_surface);
+        m_xdg_surface = nullptr;
+    }
+    if (m_layer_surface) {
+        zwlr_layer_surface_v1_destroy(m_layer_surface);
+        m_layer_surface = nullptr;
     }
 }
 

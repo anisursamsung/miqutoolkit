@@ -9,6 +9,8 @@
 struct zwlr_layer_shell_v1;
 struct zwlr_foreign_toplevel_manager_v1;
 struct ext_workspace_manager_v1;
+struct xdg_wm_base;
+struct xdg_wm_base_listener;
 
 namespace miqu {
 
@@ -28,6 +30,7 @@ public:
     struct zwlr_layer_shell_v1* get_layer_shell() const { return m_layer_shell; }
     struct zwlr_foreign_toplevel_manager_v1* get_foreign_toplevel_manager() const { return m_foreign_toplevel_manager; }
     struct ext_workspace_manager_v1* get_workspace_manager_protocol() const { return m_ext_workspace_manager; }
+    struct xdg_wm_base* get_xdg_wm_base() const { return m_xdg_wm_base; }
     struct wl_seat* get_seat() const { return m_seat; }
     uint32_t get_seat_capabilities() const { return m_seat_capabilities; }
 
@@ -44,6 +47,7 @@ private:
     static void registry_global_remove(void* data, struct wl_registry* registry, uint32_t name);
     static const struct wl_registry_listener s_registry_listener;
     static const struct wl_seat_listener s_seat_listener;
+    static const struct ::xdg_wm_base_listener s_wm_base_listener;
 
     static AppEngine* s_instance;
 
@@ -54,6 +58,7 @@ private:
     struct zwlr_layer_shell_v1* m_layer_shell = nullptr;
     struct zwlr_foreign_toplevel_manager_v1* m_foreign_toplevel_manager = nullptr;
     struct ext_workspace_manager_v1* m_ext_workspace_manager = nullptr;
+    struct xdg_wm_base* m_xdg_wm_base = nullptr;
     struct wl_seat* m_seat = nullptr;
     uint32_t m_seat_capabilities = 0;
 
