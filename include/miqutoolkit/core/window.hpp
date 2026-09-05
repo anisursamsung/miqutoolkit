@@ -45,6 +45,8 @@ public:
     const std::string& get_title() const { return m_title; }
     void set_app_id(std::string app_id) { m_app_id = std::move(app_id); }
     const std::string& get_app_id() const { return m_app_id; }
+    void set_layer_namespace(std::string ns) { m_layer_namespace = std::move(ns); }
+    const std::string& get_layer_namespace() const { return m_layer_namespace; }
 
     void set_keyboard_interactive(bool interactive) { m_kb_interactive = interactive; }
     void set_exclusive_zone(int32_t zone) { m_exclusive_zone = zone; }
@@ -83,6 +85,7 @@ private:
     WindowRole m_role = WindowRole::Toplevel;
     std::string m_title = "miqutoolkit";
     std::string m_app_id = "org.miqu.app";
+    std::string m_layer_namespace;
 
     bool m_kb_interactive = true;
     int32_t m_exclusive_zone = -1;
@@ -143,6 +146,11 @@ public:
 
     std::shared_ptr<WindowBuilder> appId(std::string id) {
         m_window->set_app_id(std::move(id));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<WindowBuilder> layerNamespace(std::string ns) {
+        m_window->set_layer_namespace(std::move(ns));
         return shared_from_this();
     }
 

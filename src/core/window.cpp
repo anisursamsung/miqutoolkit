@@ -316,12 +316,17 @@ bool Window::init() {
     else if (m_role == WindowRole::LayerBottom) layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
     else if (m_role == WindowRole::LayerBackground) layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
 
+    std::string ns = m_layer_namespace;
+    if (ns.empty()) {
+        ns = m_app_id.empty() ? "miqutoolkit-layer" : m_app_id;
+    }
+
     m_layer_surface = zwlr_layer_shell_v1_get_layer_surface(
         engine->get_layer_shell(),
         m_surface,
         nullptr,
         layer,
-        "miqutoolkit-overlay"
+        ns.c_str()
     );
 
     if (!m_layer_surface) return false;
