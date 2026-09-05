@@ -163,16 +163,11 @@ void ColorScheme::load_user_theme() {
     std::vector<std::string> search_paths;
     if (xdg_config && *xdg_config) {
         search_paths.push_back(std::string(xdg_config) + "/miquland/miquland.conf");
-        search_paths.push_back(std::string(xdg_config) + "/miquland/theme/theme_mode.conf");
-        search_paths.push_back(std::string(xdg_config) + "/miquland/theme/dark.conf");
     }
     if (home && *home) {
         search_paths.push_back(std::string(home) + "/.config/miquland/miquland.conf");
-        search_paths.push_back(std::string(home) + "/.config/miquland/theme/theme_mode.conf");
-        search_paths.push_back(std::string(home) + "/.config/miquland/theme/dark.conf");
     }
     search_paths.push_back("/usr/share/miquland/miquland.conf");
-    search_paths.push_back("/usr/share/miquland/theme/dark.conf");
 
     for (const auto& path : search_paths) {
         if (fs::exists(path)) {

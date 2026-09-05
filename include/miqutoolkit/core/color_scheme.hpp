@@ -9,19 +9,19 @@ namespace miqu {
 class ColorScheme {
 public:
     struct Colors {
-        Color background           = Color::rgba(0.12f, 0.13f, 0.18f, 0.96f);
-        Color on_background        = Color::rgba(0.90f, 0.90f, 0.95f, 1.0f);
-        Color surface              = Color::rgba(0.16f, 0.17f, 0.24f, 0.96f);
-        Color on_surface           = Color::rgba(0.90f, 0.90f, 0.95f, 1.0f);
-        Color surface_variant      = Color::rgba(0.20f, 0.22f, 0.32f, 0.96f);
-        Color on_surface_variant  = Color::rgba(0.70f, 0.72f, 0.80f, 1.0f);
-        Color primary              = Color::rgba(0.53f, 0.47f, 0.98f, 1.0f);
-        Color on_primary           = Color::rgba(0.05f, 0.05f, 0.10f, 1.0f);
-        Color primary_container    = Color::rgba(0.35f, 0.30f, 0.70f, 0.50f);
-        Color on_primary_container = Color::rgba(0.95f, 0.95f, 1.00f, 1.0f);
-        Color outline              = Color::rgba(0.30f, 0.32f, 0.45f, 0.80f);
-        Color outline_variant      = Color::rgba(0.22f, 0.24f, 0.35f, 0.60f);
-        Color backdrop             = Color::rgba(0.0f, 0.0f, 0.0f, 0.50f);
+        Color background           = Color::rgba(0.957f, 0.973f, 0.988f, 0.96f);
+        Color on_background        = Color::rgba(0.059f, 0.090f, 0.165f, 1.0f);
+        Color surface              = Color::rgba(1.0f, 1.0f, 1.0f, 0.96f);
+        Color on_surface           = Color::rgba(0.059f, 0.090f, 0.165f, 1.0f);
+        Color surface_variant      = Color::rgba(0.902f, 0.937f, 0.973f, 0.96f);
+        Color on_surface_variant  = Color::rgba(0.278f, 0.333f, 0.412f, 1.0f);
+        Color primary              = Color::rgba(0.0f, 0.40f, 1.0f, 1.0f);
+        Color on_primary           = Color::rgba(1.0f, 1.0f, 1.0f, 1.0f);
+        Color primary_container    = Color::rgba(0.80f, 0.898f, 1.0f, 0.50f);
+        Color on_primary_container = Color::rgba(0.0f, 0.169f, 0.40f, 1.0f);
+        Color outline              = Color::rgba(0.60f, 0.761f, 1.0f, 0.80f);
+        Color outline_variant      = Color::rgba(0.859f, 0.918f, 0.996f, 0.60f);
+        Color backdrop             = Color::rgba(0.0f, 0.0f, 0.0f, 0.30f);
     } colors;
 
     struct Metrics {
