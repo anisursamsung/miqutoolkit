@@ -19,7 +19,9 @@ public:
     void set_text(std::string text) { m_text = std::move(text); }
     const std::string& get_text() const { return m_text; }
 
-    void set_text_color(const Color& color) { m_color = color; }
+    void set_text_color(const Color& color) { m_color = color; m_has_custom_color = true; }
+    void set_font_family(std::string family) { m_font_family = std::move(family); }
+    const std::string& get_font_family() const { return m_font_family; }
     void set_text_size(int size) { m_font_size = size; }
     void set_bold(bool bold) { m_bold = bold; }
     void set_italic(bool italic) { m_italic = italic; }
@@ -31,8 +33,10 @@ public:
 
 private:
     std::string m_text;
-    Color m_color = Color::rgba(0.90f, 0.90f, 0.95f, 1.0f);
-    int m_font_size = 11;
+    std::string m_font_family = "";
+    Color m_color;
+    bool m_has_custom_color = false;
+    int m_font_size = -1;
     bool m_bold = false;
     bool m_italic = false;
     TextAlignment m_align = TextAlignment::Left;
@@ -54,6 +58,11 @@ public:
 
     std::shared_ptr<TextViewBuilder> textColor(const Color& col) {
         m_view->set_text_color(col);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<TextViewBuilder> fontFamily(std::string family) {
+        m_view->set_font_family(std::move(family));
         return shared_from_this();
     }
 

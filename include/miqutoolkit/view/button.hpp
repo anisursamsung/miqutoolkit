@@ -15,6 +15,8 @@ public:
     const std::string& get_text() const { return m_text; }
 
     void set_icon(std::string icon) { m_icon = std::move(icon); }
+    void set_font_family(std::string family) { m_font_family = std::move(family); }
+    const std::string& get_font_family() const { return m_font_family; }
     void set_text_size(int size) { m_font_size = size; }
     void set_bold(bool bold) { m_font_bold = bold; }
     void set_radius(int radius) { m_corner_radius = radius; }
@@ -37,9 +39,10 @@ public:
 private:
     std::string m_text;
     std::string m_icon;
-    int m_font_size = 11;
+    std::string m_font_family = "";
+    int m_font_size = -1;
     bool m_font_bold = false;
-    int m_corner_radius = 8;
+    int m_corner_radius = -1;
 
     bool m_hovered = false;
     bool m_pressed = false;
@@ -65,6 +68,11 @@ public:
 
     std::shared_ptr<ButtonBuilder> icon(std::string icon) {
         m_view->set_icon(std::move(icon));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ButtonBuilder> fontFamily(std::string family) {
+        m_view->set_font_family(std::move(family));
         return shared_from_this();
     }
 

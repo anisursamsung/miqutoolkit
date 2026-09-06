@@ -49,7 +49,7 @@ private:
     std::shared_ptr<TextView> m_title_view;
     std::shared_ptr<EditText> m_edit_text;
 
-    int m_corner_radius = 8;
+    int m_corner_radius = -1;
     int m_stroke_width = 0;
     Color m_stroke_color = Color::transparent();
     Color m_bg_color;

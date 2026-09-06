@@ -85,10 +85,12 @@ void SearchView::draw(cairo_t* cr, const Rect& bounds) {
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
+    int radius = (m_corner_radius >= 0) ? m_corner_radius : config->metrics.corner_radius;
+
     cairo_save(cr);
 
     // 2. Draw Unified SearchView Pill Surface
-    CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius);
+    CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
     if (m_has_custom_bg) {
         cairo_set_source_rgba(cr, m_bg_color.r, m_bg_color.g, m_bg_color.b, m_bg_color.a);
     } else {
@@ -101,7 +103,7 @@ void SearchView::draw(cairo_t* cr, const Rect& bounds) {
 
     // 3. Focused Outline
     if (is_focused()) {
-        CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, m_corner_radius);
+        CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, radius);
         cairo_set_source_rgba(cr, config->colors.primary.r,
                                   config->colors.primary.g,
                                   config->colors.primary.b,
@@ -110,7 +112,7 @@ void SearchView::draw(cairo_t* cr, const Rect& bounds) {
         cairo_stroke(cr);
     } else if (m_stroke_width > 0 && m_stroke_color.a > 0.0f) {
         double offset = m_stroke_width / 2.0;
-        CardView::draw_rounded_rect(cr, draw_x + offset, draw_y + offset, draw_w - m_stroke_width, draw_h - m_stroke_width, std::max(0.0, m_corner_radius - offset));
+        CardView::draw_rounded_rect(cr, draw_x + offset, draw_y + offset, draw_w - m_stroke_width, draw_h - m_stroke_width, std::max(0.0, radius - offset));
         cairo_set_source_rgba(cr, m_stroke_color.r, m_stroke_color.g, m_stroke_color.b, m_stroke_color.a);
         cairo_set_line_width(cr, m_stroke_width);
         cairo_stroke(cr);

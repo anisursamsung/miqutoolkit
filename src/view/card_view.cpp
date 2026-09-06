@@ -1,4 +1,5 @@
 #include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <cmath>
 
 #ifndef M_PI
@@ -32,17 +33,21 @@ void CardView::draw(cairo_t* cr, const Rect& bounds) {
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
+    auto config = Config::get();
+    int radius = (m_corner_radius >= 0) ? m_corner_radius : config->metrics.corner_radius;
+    Color bg_color = m_has_custom_bg ? m_background_color : config->colors.surface;
+
     cairo_save(cr);
 
     // 1. Draw Card Surface Fill
-    draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius);
-    cairo_set_source_rgba(cr, m_background_color.r, m_background_color.g, m_background_color.b, m_background_color.a);
+    draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
+    cairo_set_source_rgba(cr, bg_color.r, bg_color.g, bg_color.b, bg_color.a);
     cairo_fill(cr);
 
     // 2. Draw Card Border Stroke
     if (m_stroke_width > 0 && m_stroke_color.a > 0.0f) {
         double offset = m_stroke_width / 2.0;
-        draw_rounded_rect(cr, draw_x + offset, draw_y + offset, draw_w - m_stroke_width, draw_h - m_stroke_width, std::max(0.0, m_corner_radius - offset));
+        draw_rounded_rect(cr, draw_x + offset, draw_y + offset, draw_w - m_stroke_width, draw_h - m_stroke_width, std::max(0.0, radius - offset));
         cairo_set_source_rgba(cr, m_stroke_color.r, m_stroke_color.g, m_stroke_color.b, m_stroke_color.a);
         cairo_set_line_width(cr, m_stroke_width);
         cairo_stroke(cr);

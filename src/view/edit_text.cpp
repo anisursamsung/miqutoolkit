@@ -37,9 +37,11 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
 
     cairo_save(cr);
 
+    double radius = static_cast<double>(config->metrics.corner_radius > 0 ? config->metrics.corner_radius : 8);
+
     if (m_draw_background) {
         // Background input pill / card
-        CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, 8.0);
+        CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
         cairo_set_source_rgba(cr, config->colors.surface_variant.r,
                                   config->colors.surface_variant.g,
                                   config->colors.surface_variant.b,
@@ -48,7 +50,7 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
 
         // Focused outline
         if (m_focused) {
-            CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, 8.0);
+            CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, radius);
             cairo_set_source_rgba(cr, config->colors.primary.r,
                                       config->colors.primary.g,
                                       config->colors.primary.b,
@@ -65,7 +67,9 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
     PangoLayout* layout = pango_cairo_create_layout(cr);
     pango_layout_set_text(layout, display_text.c_str(), -1);
 
-    std::string font_desc_str = "Sans 12";
+    std::string font_family = !config->metrics.font_family.empty() ? config->metrics.font_family : "Sans";
+    int font_size = config->metrics.font_size > 0 ? config->metrics.font_size : 11;
+    std::string font_desc_str = font_family + " " + std::to_string(font_size);
     PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
     pango_layout_set_font_description(layout, desc);
     pango_font_description_free(desc);

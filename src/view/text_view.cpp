@@ -1,4 +1,5 @@
 #include "miqutoolkit/view/text_view.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <pango/pangocairo.h>
 
 namespace miqu {
@@ -12,7 +13,13 @@ Size TextView::measure_size() const {
     PangoLayout* layout = pango_cairo_create_layout(cr);
     pango_layout_set_text(layout, m_text.c_str(), -1);
 
-    std::string font_desc_str = "Sans " + std::to_string(m_font_size);
+    auto config = Config::get();
+    std::string font_family = !m_font_family.empty() ? m_font_family : config->metrics.font_family;
+    if (font_family.empty()) font_family = "Sans";
+    int font_size = m_font_size > 0 ? m_font_size : config->metrics.font_size;
+    if (font_size <= 0) font_size = 11;
+
+    std::string font_desc_str = font_family + " " + std::to_string(font_size);
     if (m_bold) font_desc_str += " Bold";
     if (m_italic) font_desc_str += " Italic";
 
@@ -48,7 +55,13 @@ void TextView::draw(cairo_t* cr, const Rect& bounds) {
     PangoLayout* layout = pango_cairo_create_layout(cr);
     pango_layout_set_text(layout, m_text.c_str(), -1);
 
-    std::string font_desc_str = "Sans " + std::to_string(m_font_size);
+    auto config = Config::get();
+    std::string font_family = !m_font_family.empty() ? m_font_family : config->metrics.font_family;
+    if (font_family.empty()) font_family = "Sans";
+    int font_size = m_font_size > 0 ? m_font_size : config->metrics.font_size;
+    if (font_size <= 0) font_size = 11;
+
+    std::string font_desc_str = font_family + " " + std::to_string(font_size);
     if (m_bold) font_desc_str += " Bold";
     if (m_italic) font_desc_str += " Italic";
 
@@ -76,7 +89,8 @@ void TextView::draw(cairo_t* cr, const Rect& bounds) {
     double baseline_y = draw_y + (draw_h - text_h) / 2.0;
 
     cairo_move_to(cr, draw_x, baseline_y);
-    cairo_set_source_rgba(cr, m_color.r, m_color.g, m_color.b, m_color.a);
+    Color text_col = m_has_custom_color ? m_color : config->colors.on_surface;
+    cairo_set_source_rgba(cr, text_col.r, text_col.g, text_col.b, text_col.a);
     pango_cairo_show_layout(cr, layout);
 
     g_object_unref(layout);

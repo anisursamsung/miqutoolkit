@@ -13,7 +13,13 @@ Size Button::measure_size() const {
     PangoLayout* layout = pango_cairo_create_layout(cr);
     pango_layout_set_text(layout, m_text.c_str(), -1);
 
-    std::string font_desc_str = "Sans " + std::to_string(m_font_size);
+    auto config = Config::get();
+    std::string font_family = !m_font_family.empty() ? m_font_family : config->metrics.font_family;
+    if (font_family.empty()) font_family = "Sans";
+    int font_size = m_font_size > 0 ? m_font_size : config->metrics.font_size;
+    if (font_size <= 0) font_size = 11;
+
+    std::string font_desc_str = font_family + " " + std::to_string(font_size);
     if (m_font_bold) font_desc_str += " Bold";
 
     PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
@@ -66,18 +72,20 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
         fg_color = config->colors.on_surface;
     }
 
+    int radius = (m_corner_radius >= 0) ? m_corner_radius : config->metrics.corner_radius;
+
     cairo_save(cr);
 
     // Background
     if (bg_color.a > 0.0f) {
-        CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius);
+        CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
         cairo_set_source_rgba(cr, bg_color.r, bg_color.g, bg_color.b, bg_color.a);
         cairo_fill(cr);
     }
 
     // Border if selected
     if (m_selected) {
-        CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, m_corner_radius);
+        CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, radius);
         cairo_set_source_rgba(cr, config->colors.primary.r, config->colors.primary.g, config->colors.primary.b, 0.8);
         cairo_set_line_width(cr, 1.0);
         cairo_stroke(cr);
@@ -88,7 +96,12 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
         PangoLayout* layout = pango_cairo_create_layout(cr);
         pango_layout_set_text(layout, m_text.c_str(), -1);
 
-        std::string font_desc_str = "Sans " + std::to_string(m_font_size);
+        std::string font_family = !m_font_family.empty() ? m_font_family : config->metrics.font_family;
+        if (font_family.empty()) font_family = "Sans";
+        int font_size = m_font_size > 0 ? m_font_size : config->metrics.font_size;
+        if (font_size <= 0) font_size = 11;
+
+        std::string font_desc_str = font_family + " " + std::to_string(font_size);
         if (m_font_bold) font_desc_str += " Bold";
 
         PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
@@ -118,9 +131,9 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
 }
 
 bool Button::on_mouse_move(int lx, int ly, const Rect& bounds) {
-    bool now_hovered = bounds.contains(lx, ly);
-    if (now_hovered != m_hovered) {
-        m_hovered = now_hovered;
+    bool hovered = bounds.contains(Point(lx, ly));
+    if (hovered != m_hovered) {
+        m_hovered = hovered;
         return true;
     }
     return false;
@@ -129,22 +142,21 @@ bool Button::on_mouse_move(int lx, int ly, const Rect& bounds) {
 bool Button::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (button != MouseButton::Left) return false;
 
-    if (bounds.contains(lx, ly)) {
-        if (pressed) {
+    bool contains = bounds.contains(Point(lx, ly));
+    if (pressed) {
+        if (contains) {
             m_pressed = true;
             return true;
-        } else if (m_pressed) {
+        }
+    } else {
+        if (m_pressed) {
             m_pressed = false;
-            if (m_on_click) {
+            if (contains && m_on_click) {
                 m_on_click();
             }
             return true;
         }
-    } else if (!pressed && m_pressed) {
-        m_pressed = false;
-        return true;
     }
-
     return false;
 }
 
