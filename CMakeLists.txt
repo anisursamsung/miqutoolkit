@@ -76,7 +76,7 @@ add_custom_command(
 add_library(miqutoolkit SHARED
     src/core/app_engine.cpp
     src/core/window.cpp
-    src/core/color_scheme.cpp
+    src/core/theme.cpp
     src/core/shm_pool.cpp
     src/view/view_group.cpp
     src/view/linear_layout.cpp

@@ -4,6 +4,7 @@
 #include "miqutoolkit/core/types.hpp"
 #include "miqutoolkit/core/geometry.hpp"
 #include "miqutoolkit/core/color.hpp"
+#include "miqutoolkit/core/theme.hpp"
 #include "miqutoolkit/core/color_scheme.hpp"
 #include "miqutoolkit/core/shm_pool.hpp"
 #include "miqutoolkit/core/app_engine.hpp"

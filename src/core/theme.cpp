@@ -1,4 +1,4 @@
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/theme.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -10,7 +10,7 @@ namespace miqu {
 
 namespace fs = std::filesystem;
 
-static std::shared_ptr<ColorScheme> s_instance = nullptr;
+static std::shared_ptr<Theme> s_instance = nullptr;
 
 static std::string trim_str(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n\"'");
@@ -30,15 +30,14 @@ static std::string expand_home(const std::string& path) {
     return path;
 }
 
-std::shared_ptr<ColorScheme> ColorScheme::get() {
+std::shared_ptr<Theme> Theme::get() {
     if (!s_instance) {
-        s_instance = std::make_shared<ColorScheme>();
-        s_instance->load_user_theme();
+        s_instance = std::make_shared<Theme>();
     }
     return s_instance;
 }
 
-static void load_config_file_internal(const std::string& path, ColorScheme::Colors& colors, ColorScheme::Metrics& metrics, int depth) {
+static void load_config_file_internal(const std::string& path, Theme::Colors& colors, Theme::Metrics& metrics, int depth) {
     if (depth > 10) return;
 
     std::string expanded = expand_home(path);
@@ -156,25 +155,15 @@ static void load_config_file_internal(const std::string& path, ColorScheme::Colo
     }
 }
 
-void ColorScheme::load_user_theme() {
-    const char* home = getenv("HOME");
-    const char* xdg_config = getenv("XDG_CONFIG_HOME");
+bool Theme::load_from_file(const std::string& path) {
+    std::string expanded = expand_home(path);
+    if (!fs::exists(expanded)) return false;
+    load_config_file_internal(expanded, colors, metrics, 0);
+    return true;
+}
 
-    std::vector<std::string> search_paths;
-    if (xdg_config && *xdg_config) {
-        search_paths.push_back(std::string(xdg_config) + "/miquland/miquland.conf");
-    }
-    if (home && *home) {
-        search_paths.push_back(std::string(home) + "/.config/miquland/miquland.conf");
-    }
-    search_paths.push_back("/usr/share/miquland/miquland.conf");
-
-    for (const auto& path : search_paths) {
-        if (fs::exists(path)) {
-            load_config_file_internal(path, colors, metrics, 0);
-            break;
-        }
-    }
+void Theme::load_user_theme() {
+    // No-op: applications now configure and load their own themes independently
 }
 
 } // namespace miqu
