@@ -6,7 +6,7 @@
 
 namespace miqu {
 
-class Theme {
+class Config {
 public:
     struct Colors {
         Color background           = Color::rgba(0.957f, 0.973f, 0.988f, 0.96f);
@@ -32,14 +32,10 @@ public:
         int font_size = 11;
     } metrics;
 
-    static std::shared_ptr<Theme> get();
+    static std::shared_ptr<Config> get();
     bool load_from_file(const std::string& path);
     void set_colors(const Colors& new_colors) { colors = new_colors; }
     void set_metrics(const Metrics& new_metrics) { metrics = new_metrics; }
-    void load_user_theme();
 };
-
-// Backward-compatibility alias
-using ColorScheme = Theme;
 
 } // namespace miqu

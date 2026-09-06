@@ -1,6 +1,6 @@
 #include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/view/card_view.hpp"
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <filesystem>
 #include <fstream>
@@ -173,7 +173,7 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
         return path_str;
     }
 
-    std::string user_theme = ColorScheme::get()->metrics.icon_theme;
+    std::string user_theme = Config::get()->metrics.icon_theme;
     if (user_theme.empty()) user_theme = "Papirus";
 
     std::string cache_key = user_theme + ":" + icon_name;

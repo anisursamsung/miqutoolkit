@@ -1,4 +1,4 @@
-#include "miqutoolkit/core/theme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -10,7 +10,7 @@ namespace miqu {
 
 namespace fs = std::filesystem;
 
-static std::shared_ptr<Theme> s_instance = nullptr;
+static std::shared_ptr<Config> s_instance = nullptr;
 
 static std::string trim_str(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n\"'");
@@ -30,14 +30,14 @@ static std::string expand_home(const std::string& path) {
     return path;
 }
 
-std::shared_ptr<Theme> Theme::get() {
+std::shared_ptr<Config> Config::get() {
     if (!s_instance) {
-        s_instance = std::make_shared<Theme>();
+        s_instance = std::make_shared<Config>();
     }
     return s_instance;
 }
 
-static void load_config_file_internal(const std::string& path, Theme::Colors& colors, Theme::Metrics& metrics, int depth) {
+static void load_config_file_internal(const std::string& path, Config::Colors& colors, Config::Metrics& metrics, int depth) {
     if (depth > 10) return;
 
     std::string expanded = expand_home(path);
@@ -155,15 +155,11 @@ static void load_config_file_internal(const std::string& path, Theme::Colors& co
     }
 }
 
-bool Theme::load_from_file(const std::string& path) {
+bool Config::load_from_file(const std::string& path) {
     std::string expanded = expand_home(path);
     if (!fs::exists(expanded)) return false;
     load_config_file_internal(expanded, colors, metrics, 0);
     return true;
-}
-
-void Theme::load_user_theme() {
-    // No-op: applications now configure and load their own themes independently
 }
 
 } // namespace miqu

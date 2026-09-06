@@ -7,7 +7,7 @@ A lightweight C++20 UI framework for Wayland layer-shell applications, built wit
 - **Wayland Native**: Direct `wlr-layer-shell` integration for overlays, panels, and modals.
 - **Declarative Builders**: `WindowBuilder`, `CardViewBuilder`, `LinearLayoutBuilder`, `GridViewBuilder`, `SearchViewBuilder`.
 - **Widgets**: `CardView`, `TextView`, `EditText`, `ImageView` (SVG/PNG with system icon lookup), `Button`, `GridView`.
-- **Dynamic Theming**: `ColorScheme` automatically reads colors and metrics from `miquland.conf`.
+- **Configuration & Theming**: `Config` manages application colors and metrics with file loading support.
 
 ## Dependencies
 
@@ -44,7 +44,7 @@ using namespace miqu;
 
 int main(int argc, char* argv[]) {
     auto engine = AppEngine::create();
-    auto theme = ColorScheme::get();
+    auto config = Config::get();
 
     auto search = SearchViewBuilder::create()
         ->title("Search")

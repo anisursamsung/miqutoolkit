@@ -1,6 +1,6 @@
 #include "miqutoolkit/core/window.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include <sys/mman.h>
@@ -390,12 +390,12 @@ void Window::render_frame() {
     } else {
         // 1. Draw Dim Backdrop if enabled
         if (m_dim_backdrop) {
-            auto theme = ColorScheme::get();
+            auto config = Config::get();
             cairo_save(buf->cr);
-            cairo_set_source_rgba(buf->cr, theme->colors.backdrop.r,
-                                          theme->colors.backdrop.g,
-                                          theme->colors.backdrop.b,
-                                          theme->colors.backdrop.a);
+            cairo_set_source_rgba(buf->cr, config->colors.backdrop.r,
+                                          config->colors.backdrop.g,
+                                          config->colors.backdrop.b,
+                                          config->colors.backdrop.a);
             cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
             cairo_fill(buf->cr);
             cairo_restore(buf->cr);

@@ -1,6 +1,6 @@
 #include "miqutoolkit/view/grid_view.hpp"
 #include "miqutoolkit/view/card_view.hpp"
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include "miqutoolkit/core/window.hpp"
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
@@ -130,7 +130,7 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
 
     m_last_width = bounds.width;
     m_last_height = bounds.height;
-    auto theme = ColorScheme::get();
+    auto config = Config::get();
 
     int cell_w = 0;
     int cols = compute_columns(bounds.width, cell_w);
@@ -169,24 +169,24 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
         // Tile background (Selected / Hovered highlight)
         if (is_selected) {
             CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, 8.0);
-            cairo_set_source_rgba(cr, theme->colors.primary_container.r,
-                                      theme->colors.primary_container.g,
-                                      theme->colors.primary_container.b,
+            cairo_set_source_rgba(cr, config->colors.primary_container.r,
+                                      config->colors.primary_container.g,
+                                      config->colors.primary_container.b,
                                       0.6f);
             cairo_fill(cr);
 
             CardView::draw_rounded_rect(cr, cell_x + 0.5, cell_y + 0.5, cell_w - 1.0, m_cell_h - 1.0, 8.0);
-            cairo_set_source_rgba(cr, theme->colors.primary.r,
-                                      theme->colors.primary.g,
-                                      theme->colors.primary.b,
+            cairo_set_source_rgba(cr, config->colors.primary.r,
+                                      config->colors.primary.g,
+                                      config->colors.primary.b,
                                       0.8f);
             cairo_set_line_width(cr, 1.0);
             cairo_stroke(cr);
         } else if (is_hovered) {
             CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, 8.0);
-            cairo_set_source_rgba(cr, theme->colors.surface_variant.r,
-                                      theme->colors.surface_variant.g,
-                                      theme->colors.surface_variant.b,
+            cairo_set_source_rgba(cr, config->colors.surface_variant.r,
+                                      config->colors.surface_variant.g,
+                                      config->colors.surface_variant.b,
                                       0.4f);
             cairo_fill(cr);
         }
@@ -205,9 +205,9 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
 
         cairo_save(cr);
         CardView::draw_rounded_rect(cr, thumb_x, thumb_y, 4.0, thumb_h, 2.0);
-        cairo_set_source_rgba(cr, theme->colors.outline.r,
-                                  theme->colors.outline.g,
-                                  theme->colors.outline.b,
+        cairo_set_source_rgba(cr, config->colors.outline.r,
+                                  config->colors.outline.g,
+                                  config->colors.outline.b,
                                   0.6f);
         cairo_fill(cr);
         cairo_restore(cr);

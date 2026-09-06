@@ -1,6 +1,6 @@
 #include "miqutoolkit/view/edit_text.hpp"
 #include "miqutoolkit/view/card_view.hpp"
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <pango/pangocairo.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
@@ -26,7 +26,7 @@ Size EditText::measure_size() const {
 void EditText::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    auto theme = ColorScheme::get();
+    auto config = Config::get();
 
     int draw_x = bounds.x + m_margin.left;
     int draw_y = bounds.y + m_margin.top;
@@ -40,18 +40,18 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
     if (m_draw_background) {
         // Background input pill / card
         CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, 8.0);
-        cairo_set_source_rgba(cr, theme->colors.surface_variant.r,
-                                  theme->colors.surface_variant.g,
-                                  theme->colors.surface_variant.b,
-                                  theme->colors.surface_variant.a);
+        cairo_set_source_rgba(cr, config->colors.surface_variant.r,
+                                  config->colors.surface_variant.g,
+                                  config->colors.surface_variant.b,
+                                  config->colors.surface_variant.a);
         cairo_fill(cr);
 
         // Focused outline
         if (m_focused) {
             CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, 8.0);
-            cairo_set_source_rgba(cr, theme->colors.primary.r,
-                                      theme->colors.primary.g,
-                                      theme->colors.primary.b,
+            cairo_set_source_rgba(cr, config->colors.primary.r,
+                                      config->colors.primary.g,
+                                      config->colors.primary.b,
                                       0.9f);
             cairo_set_line_width(cr, 1.5);
             cairo_stroke(cr);
@@ -89,15 +89,15 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
     cairo_move_to(cr, text_draw_x, text_draw_y);
 
     if (is_hint) {
-        cairo_set_source_rgba(cr, theme->colors.on_surface_variant.r,
-                                  theme->colors.on_surface_variant.g,
-                                  theme->colors.on_surface_variant.b,
+        cairo_set_source_rgba(cr, config->colors.on_surface_variant.r,
+                                  config->colors.on_surface_variant.g,
+                                  config->colors.on_surface_variant.b,
                                   0.6f);
     } else {
-        cairo_set_source_rgba(cr, theme->colors.on_surface.r,
-                                  theme->colors.on_surface.g,
-                                  theme->colors.on_surface.b,
-                                  theme->colors.on_surface.a);
+        cairo_set_source_rgba(cr, config->colors.on_surface.r,
+                                  config->colors.on_surface.g,
+                                  config->colors.on_surface.b,
+                                  config->colors.on_surface.a);
     }
 
     pango_cairo_show_layout(cr, layout);
@@ -111,18 +111,18 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
         double cur_y = text_draw_y + static_cast<double>(strong_pos.y) / PANGO_SCALE;
         double cur_h = static_cast<double>(strong_pos.height) / PANGO_SCALE;
 
-        cairo_set_source_rgba(cr, theme->colors.primary.r,
-                                  theme->colors.primary.g,
-                                  theme->colors.primary.b,
+        cairo_set_source_rgba(cr, config->colors.primary.r,
+                                  config->colors.primary.g,
+                                  config->colors.primary.b,
                                   1.0f);
         cairo_set_line_width(cr, 2.0);
         cairo_move_to(cr, cur_x, cur_y);
         cairo_line_to(cr, cur_x, cur_y + cur_h);
         cairo_stroke(cr);
     } else if (m_focused && is_hint) {
-        cairo_set_source_rgba(cr, theme->colors.primary.r,
-                                  theme->colors.primary.g,
-                                  theme->colors.primary.b,
+        cairo_set_source_rgba(cr, config->colors.primary.r,
+                                  config->colors.primary.g,
+                                  config->colors.primary.b,
                                   1.0f);
         cairo_set_line_width(cr, 2.0);
         cairo_move_to(cr, text_draw_x, text_draw_y);

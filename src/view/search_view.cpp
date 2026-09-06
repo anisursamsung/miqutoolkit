@@ -1,6 +1,6 @@
 #include "miqutoolkit/view/search_view.hpp"
 #include "miqutoolkit/view/card_view.hpp"
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
 
@@ -74,7 +74,7 @@ Size SearchView::measure_size() const {
 void SearchView::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    auto theme = ColorScheme::get();
+    auto config = Config::get();
     m_child_entries.clear();
 
     // 1. Calculate Outer Margin and Content Bounds
@@ -92,19 +92,19 @@ void SearchView::draw(cairo_t* cr, const Rect& bounds) {
     if (m_has_custom_bg) {
         cairo_set_source_rgba(cr, m_bg_color.r, m_bg_color.g, m_bg_color.b, m_bg_color.a);
     } else {
-        cairo_set_source_rgba(cr, theme->colors.surface_variant.r,
-                                  theme->colors.surface_variant.g,
-                                  theme->colors.surface_variant.b,
-                                  theme->colors.surface_variant.a);
+        cairo_set_source_rgba(cr, config->colors.surface_variant.r,
+                                  config->colors.surface_variant.g,
+                                  config->colors.surface_variant.b,
+                                  config->colors.surface_variant.a);
     }
     cairo_fill(cr);
 
     // 3. Focused Outline
     if (is_focused()) {
         CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, m_corner_radius);
-        cairo_set_source_rgba(cr, theme->colors.primary.r,
-                                  theme->colors.primary.g,
-                                  theme->colors.primary.b,
+        cairo_set_source_rgba(cr, config->colors.primary.r,
+                                  config->colors.primary.g,
+                                  config->colors.primary.b,
                                   0.9f);
         cairo_set_line_width(cr, 1.5);
         cairo_stroke(cr);
@@ -135,7 +135,7 @@ void SearchView::draw(cairo_t* cr, const Rect& bounds) {
 
     // 5. Draw Left Title/Label if present
     if (!m_title.empty() && m_title_view) {
-        m_title_view->set_text_color(theme->colors.primary);
+        m_title_view->set_text_color(config->colors.primary);
         Size title_size = m_title_view->measure_size();
         int title_w = title_size.width;
         int title_h = title_size.height;

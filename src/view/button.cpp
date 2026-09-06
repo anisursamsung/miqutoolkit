@@ -1,6 +1,6 @@
 #include "miqutoolkit/view/button.hpp"
 #include "miqutoolkit/view/card_view.hpp"
-#include "miqutoolkit/core/color_scheme.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include <pango/pangocairo.h>
 #include <iostream>
 
@@ -40,7 +40,7 @@ Size Button::measure_size() const {
 void Button::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    auto theme = ColorScheme::get();
+    auto config = Config::get();
 
     int draw_x = bounds.x + m_margin.left;
     int draw_y = bounds.y + m_margin.top;
@@ -50,20 +50,20 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
     if (draw_w <= 0 || draw_h <= 0) return;
 
     Color bg_color = Color::transparent();
-    Color fg_color = theme->colors.on_surface;
+    Color fg_color = config->colors.on_surface;
 
     if (m_use_custom_colors) {
         bg_color = m_custom_bg;
         fg_color = m_custom_fg;
     } else if (m_selected) {
-        bg_color = theme->colors.primary_container;
-        fg_color = theme->colors.on_primary_container;
+        bg_color = config->colors.primary_container;
+        fg_color = config->colors.on_primary_container;
     } else if (m_pressed) {
-        bg_color = theme->colors.primary.with_alpha(0.35f);
-        fg_color = theme->colors.primary;
+        bg_color = config->colors.primary.with_alpha(0.35f);
+        fg_color = config->colors.primary;
     } else if (m_hovered) {
-        bg_color = theme->colors.surface_variant.with_alpha(0.6f);
-        fg_color = theme->colors.on_surface;
+        bg_color = config->colors.surface_variant.with_alpha(0.6f);
+        fg_color = config->colors.on_surface;
     }
 
     cairo_save(cr);
@@ -78,7 +78,7 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
     // Border if selected
     if (m_selected) {
         CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, m_corner_radius);
-        cairo_set_source_rgba(cr, theme->colors.primary.r, theme->colors.primary.g, theme->colors.primary.b, 0.8);
+        cairo_set_source_rgba(cr, config->colors.primary.r, config->colors.primary.g, config->colors.primary.b, 0.8);
         cairo_set_line_width(cr, 1.0);
         cairo_stroke(cr);
     }
