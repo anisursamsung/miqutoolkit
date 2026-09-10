@@ -158,7 +158,7 @@ void AppEngine::unregister_window(std::shared_ptr<Window> win) {
     if (it != m_windows.end()) {
         m_windows.erase(it);
     }
-    if (m_windows.empty()) {
+    if (m_quit_on_last_window && m_windows.empty()) {
         quit(0);
     }
 }
@@ -215,6 +215,18 @@ int AppEngine::enter_loop() {
             break;
         }
 
+        if (pfd[0].revents & POLLIN) {
+            if (wl_display_read_events(m_display) < 0) {
+                break;
+            }
+        } else {
+            wl_display_cancel_read(m_display);
+        }
+
+        if (wl_display_dispatch_pending(m_display) < 0) {
+            break;
+        }
+
         if (m_wakeup_fd >= 0 && (pfd[1].revents & POLLIN)) {
             uint64_t val = 0;
             ssize_t s = read(m_wakeup_fd, &val, sizeof(val));
@@ -228,18 +240,6 @@ int AppEngine::enter_loop() {
             for (auto& t : tasks_to_run) {
                 if (t) t();
             }
-        }
-
-        if (pfd[0].revents & POLLIN) {
-            if (wl_display_read_events(m_display) < 0) {
-                break;
-            }
-        } else {
-            wl_display_cancel_read(m_display);
-        }
-
-        if (wl_display_dispatch_pending(m_display) < 0) {
-            break;
         }
     }
     return m_exit_code;

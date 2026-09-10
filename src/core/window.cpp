@@ -480,6 +480,18 @@ void Window::close() {
         zwlr_layer_surface_v1_destroy(m_layer_surface);
         m_layer_surface = nullptr;
     }
+    if (m_frame_callback) {
+        wl_callback_destroy(m_frame_callback);
+        m_frame_callback = nullptr;
+    }
+    if (m_surface) {
+        wl_surface_destroy(m_surface);
+        m_surface = nullptr;
+    }
+    m_configured = false;
+    if (engine && engine->get_display()) {
+        wl_display_flush(engine->get_display());
+    }
 }
 
 void Window::update_cursor(uint32_t serial) {
