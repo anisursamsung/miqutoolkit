@@ -23,9 +23,13 @@
 #include "miqutoolkit/view/button.hpp"
 #include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/view/grid_view.hpp"
+#include "miqutoolkit/view/seek_bar.hpp"
+#include "miqutoolkit/view/circle_image_view.hpp"
+#include "miqutoolkit/view/image_button.hpp"
 
 // System Services
 #include "miqutoolkit/system/window_manager.hpp"
 #include "miqutoolkit/system/workspace_manager.hpp"
+#include "miqutoolkit/system/output_manager.hpp"
 
 namespace miqutoolkit = miqu;

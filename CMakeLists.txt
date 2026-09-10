@@ -11,6 +11,7 @@ include(GNUInstallDirs)
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
+pkg_check_modules(WAYLAND_CURSOR REQUIRED IMPORTED_TARGET wayland-cursor)
 pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols>=1.24)
 pkg_check_modules(XKBCOMMON REQUIRED IMPORTED_TARGET xkbcommon)
 pkg_check_modules(CAIRO REQUIRED IMPORTED_TARGET cairo)
@@ -89,8 +90,12 @@ add_library(miqutoolkit SHARED
     src/view/edit_text.cpp
     src/view/search_view.cpp
     src/view/grid_view.cpp
+    src/view/seek_bar.cpp
+    src/view/circle_image_view.cpp
+    src/view/image_button.cpp
     src/system/window_manager.cpp
     src/system/workspace_manager.cpp
+    src/system/output_manager.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.c
     ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-client-protocol.h
@@ -122,6 +127,7 @@ target_include_directories(miqutoolkit
 target_link_libraries(miqutoolkit
     PUBLIC
         PkgConfig::WAYLAND_CLIENT
+        PkgConfig::WAYLAND_CURSOR
         PkgConfig::XKBCOMMON
         PkgConfig::CAIRO
         PkgConfig::PANGOCAIRO

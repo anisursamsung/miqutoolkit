@@ -58,6 +58,15 @@ bool ViewGroup::on_mouse_button(int lx, int ly, MouseButton button, bool pressed
             }
         }
     }
+
+    if (button == MouseButton::Left && bounds.contains(lx, ly)) {
+        if (!pressed && m_on_click) {
+            m_on_click();
+            return true;
+        }
+        return (m_on_click != nullptr);
+    }
+
     return false;
 }
 

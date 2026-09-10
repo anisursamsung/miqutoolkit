@@ -15,6 +15,7 @@ struct xdg_surface;
 struct xdg_surface_listener;
 struct xdg_toplevel;
 struct xdg_toplevel_listener;
+struct wl_cursor_theme;
 
 namespace miqu {
 
@@ -51,8 +52,23 @@ public:
     void set_keyboard_interactive(bool interactive) { m_kb_interactive = interactive; }
     void set_exclusive_zone(int32_t zone) { m_exclusive_zone = zone; }
     void set_preferred_size(int w, int h) { m_width = w; m_height = h; }
-    void set_content_size(int w, int h) { m_content_w = w; m_content_h = h; }
-    void set_anchors(uint32_t anchors) { m_anchors = anchors; }
+    void set_content_size(int w, int h) {
+        m_content_w = w;
+        m_content_h = h;
+        if (m_anchors == 0) {
+            m_width = w;
+            m_height = h;
+        }
+    }
+    void set_anchors(uint32_t anchors) {
+        m_anchors = anchors;
+        if (m_anchors == 0 && m_content_w > 0 && m_content_h > 0) {
+            m_width = m_content_w;
+            m_height = m_content_h;
+        }
+    }
+    void set_output(struct wl_output* output) { m_output = output; }
+    struct wl_output* get_output() const { return m_output; }
 
     // Backdrop & Modal options
     void set_dim_backdrop(bool dim) { m_dim_backdrop = dim; }
@@ -101,15 +117,21 @@ private:
 
     bool m_configured = false;
     bool m_needs_redraw = false;
+    bool m_has_keyboard_focus = false;
     Rect m_allocated_content_bounds;
 
     struct wl_surface* m_surface = nullptr;
+    struct wl_output* m_output = nullptr;
     struct zwlr_layer_surface_v1* m_layer_surface = nullptr;
     struct xdg_surface* m_xdg_surface = nullptr;
     struct xdg_toplevel* m_xdg_toplevel = nullptr;
     struct wl_pointer* m_pointer = nullptr;
     struct wl_keyboard* m_keyboard = nullptr;
     struct wl_callback* m_frame_callback = nullptr;
+    struct wl_cursor_theme* m_cursor_theme = nullptr;
+    struct wl_surface* m_cursor_surface = nullptr;
+
+    void update_cursor(uint32_t serial);
 
     struct xkb_context* m_xkb_ctx = nullptr;
     struct xkb_keymap* m_xkb_keymap = nullptr;
@@ -191,6 +213,11 @@ public:
 
     std::shared_ptr<WindowBuilder> anchors(uint32_t a) {
         m_window->set_anchors(a);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<WindowBuilder> output(struct wl_output* out) {
+        m_window->set_output(out);
         return shared_from_this();
     }
 

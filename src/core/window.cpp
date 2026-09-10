@@ -3,6 +3,7 @@
 #include "miqutoolkit/core/config.hpp"
 #include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+#include <wayland-cursor.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -102,6 +103,7 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
         auto* self = static_cast<Window*>(data);
         self->m_last_x = wl_fixed_to_double(sx);
         self->m_last_y = wl_fixed_to_double(sy);
+        self->update_cursor(serial);
         if (self->m_root_view) {
             self->m_root_view->on_mouse_move(self->m_last_x, self->m_last_y, self->m_allocated_content_bounds);
             self->schedule_redraw();
@@ -190,8 +192,20 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
         if (self->m_xkb_state) xkb_state_unref(self->m_xkb_state);
         self->m_xkb_state = xkb_state_new(self->m_xkb_keymap);
     },
-    .enter = [](void*, struct wl_keyboard*, uint32_t, struct wl_surface*, struct wl_array*) {},
-    .leave = [](void*, struct wl_keyboard*, uint32_t, struct wl_surface*) {},
+    .enter = [](void* data, struct wl_keyboard*, uint32_t, struct wl_surface*, struct wl_array*) {
+        auto* self = static_cast<Window*>(data);
+        self->m_has_keyboard_focus = true;
+    },
+    .leave = [](void* data, struct wl_keyboard*, uint32_t, struct wl_surface*) {
+        auto* self = static_cast<Window*>(data);
+        if (self->m_has_keyboard_focus) {
+            self->m_has_keyboard_focus = false;
+            if (self->m_close_on_click_outside) {
+                if (self->m_on_close) self->m_on_close();
+                self->close();
+            }
+        }
+    },
     .key = [](void* data, struct wl_keyboard*, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
         auto* self = static_cast<Window*>(data);
         if (!self->m_xkb_state) return;
@@ -259,6 +273,8 @@ Window::Window() {
 }
 
 Window::~Window() {
+    if (m_cursor_surface) wl_surface_destroy(m_cursor_surface);
+    if (m_cursor_theme) wl_cursor_theme_destroy(m_cursor_theme);
     if (m_frame_callback) wl_callback_destroy(m_frame_callback);
     if (m_xkb_state) xkb_state_unref(m_xkb_state);
     if (m_xkb_keymap) xkb_keymap_unref(m_xkb_keymap);
@@ -324,7 +340,7 @@ bool Window::init() {
     m_layer_surface = zwlr_layer_shell_v1_get_layer_surface(
         engine->get_layer_shell(),
         m_surface,
-        nullptr,
+        m_output,
         layer,
         ns.c_str()
     );
@@ -337,6 +353,20 @@ bool Window::init() {
         update_seat_capabilities(engine->get_seat_capabilities());
     }
 
+    if (m_content_w > 0 && m_content_h > 0 && m_anchors == 0) {
+        m_width = m_content_w;
+        m_height = m_content_h;
+    }
+
+    bool stretch_x = (m_anchors & ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT) &&
+                     (m_anchors & ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+    bool stretch_y = (m_anchors & ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP) &&
+                     (m_anchors & ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM);
+
+    uint32_t req_w = stretch_x ? 0 : static_cast<uint32_t>(std::max(0, m_width));
+    uint32_t req_h = stretch_y ? 0 : static_cast<uint32_t>(std::max(0, m_height));
+
+    zwlr_layer_surface_v1_set_size(m_layer_surface, req_w, req_h);
     zwlr_layer_surface_v1_set_anchor(m_layer_surface, m_anchors);
     zwlr_layer_surface_v1_set_exclusive_zone(m_layer_surface, m_exclusive_zone);
 
@@ -446,6 +476,42 @@ void Window::close() {
         zwlr_layer_surface_v1_destroy(m_layer_surface);
         m_layer_surface = nullptr;
     }
+}
+
+void Window::update_cursor(uint32_t serial) {
+    if (!m_pointer) return;
+    auto* engine = AppEngine::instance();
+    if (!engine || !engine->get_shm() || !engine->get_compositor()) return;
+
+    if (!m_cursor_theme) {
+        const char* xcursor_theme = getenv("XCURSOR_THEME");
+        const char* xcursor_size = getenv("XCURSOR_SIZE");
+        int size = 24;
+        if (xcursor_size && *xcursor_size) {
+            try { size = std::stoi(xcursor_size); } catch (...) {}
+        }
+        m_cursor_theme = wl_cursor_theme_load(xcursor_theme, size, engine->get_shm());
+    }
+    if (!m_cursor_theme) return;
+
+    struct wl_cursor* cursor = wl_cursor_theme_get_cursor(m_cursor_theme, "default");
+    if (!cursor) cursor = wl_cursor_theme_get_cursor(m_cursor_theme, "left_ptr");
+    if (!cursor || cursor->image_count == 0) return;
+
+    struct wl_cursor_image* image = cursor->images[0];
+    struct wl_buffer* buffer = wl_cursor_image_get_buffer(image);
+    if (!buffer) return;
+
+    if (!m_cursor_surface) {
+        m_cursor_surface = wl_compositor_create_surface(engine->get_compositor());
+    }
+    if (!m_cursor_surface) return;
+
+    wl_surface_attach(m_cursor_surface, buffer, 0, 0);
+    wl_surface_damage(m_cursor_surface, 0, 0, image->width, image->height);
+    wl_surface_commit(m_cursor_surface);
+
+    wl_pointer_set_cursor(m_pointer, serial, m_cursor_surface, image->hotspot_x, image->hotspot_y);
 }
 
 } // namespace miqu

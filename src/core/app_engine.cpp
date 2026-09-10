@@ -2,6 +2,7 @@
 #include "miqutoolkit/core/window.hpp"
 #include "miqutoolkit/system/window_manager.hpp"
 #include "miqutoolkit/system/workspace_manager.hpp"
+#include "miqutoolkit/system/output_manager.hpp"
 #include <iostream>
 #include <cstring>
 #include <algorithm>
@@ -122,10 +123,13 @@ void AppEngine::registry_global(void* data, struct wl_registry* registry, uint32
         self->m_seat = static_cast<struct wl_seat*>(
             wl_registry_bind(registry, name, &wl_seat_interface, std::min(version, 7u)));
         wl_seat_add_listener(self->m_seat, &s_seat_listener, self);
+    } else if (std::strcmp(interface, wl_output_interface.name) == 0) {
+        OutputManager::get()->handle_global(registry, name, interface, version);
     }
 }
 
 void AppEngine::registry_global_remove(void* data, struct wl_registry* registry, uint32_t name) {
+    OutputManager::get()->handle_global_remove(name);
 }
 
 void AppEngine::register_window(std::shared_ptr<Window> win) {
