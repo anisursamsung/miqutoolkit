@@ -1,6 +1,49 @@
 #include "miqutoolkit/view/view_group.hpp"
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace miqu {
+
+void ViewGroup::draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r) {
+    if (r <= 0.0) {
+        cairo_rectangle(cr, x, y, w, h);
+        return;
+    }
+    double deg = M_PI / 180.0;
+    cairo_new_sub_path(cr);
+    cairo_arc(cr, x + w - r, y + r, r, -90 * deg, 0 * deg);
+    cairo_arc(cr, x + w - r, y + h - r, r, 0 * deg, 90 * deg);
+    cairo_arc(cr, x + r, y + h - r, r, 90 * deg, 180 * deg);
+    cairo_arc(cr, x + r, y + r, r, 180 * deg, 270 * deg);
+    cairo_close_path(cr);
+}
+
+void ViewGroup::draw_background(cairo_t* cr, const Rect& bounds) const {
+    if (!m_has_custom_bg || m_background_color.a <= 0.0f) return;
+
+    cairo_save(cr);
+    draw_rounded_rect(cr, bounds.x, bounds.y, bounds.width, bounds.height, m_corner_radius);
+    cairo_set_source_rgba(cr, m_background_color.r, m_background_color.g, m_background_color.b, m_background_color.a);
+    cairo_fill(cr);
+    cairo_restore(cr);
+}
+
+void ViewGroup::draw_stroke(cairo_t* cr, const Rect& bounds) const {
+    if (m_stroke_width <= 0 || m_stroke_color.a <= 0.0f) return;
+
+    cairo_save(cr);
+    double offset = m_stroke_width / 2.0;
+    double r = std::max(0.0, static_cast<double>(m_corner_radius) - offset);
+    draw_rounded_rect(cr, bounds.x + offset, bounds.y + offset,
+                      bounds.width - m_stroke_width, bounds.height - m_stroke_width, r);
+    cairo_set_source_rgba(cr, m_stroke_color.r, m_stroke_color.g, m_stroke_color.b, m_stroke_color.a);
+    cairo_set_line_width(cr, m_stroke_width);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+}
 
 void ViewGroup::add_view(std::shared_ptr<View> child) {
     if (!child) return;

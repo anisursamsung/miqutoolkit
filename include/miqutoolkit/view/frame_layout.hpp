@@ -70,6 +70,21 @@ public:
         return shared_from_this();
     }
 
+    std::shared_ptr<FrameLayoutBuilder> backgroundColor(const Color& color) {
+        m_layout->set_background_color(color);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<FrameLayoutBuilder> stroke(int width, const Color& color) {
+        m_layout->set_stroke(width, color);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<FrameLayoutBuilder> cornerRadius(int radius) {
+        m_layout->set_corner_radius(radius);
+        return shared_from_this();
+    }
+
     std::shared_ptr<FrameLayout> build() {
         return m_layout;
     }

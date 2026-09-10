@@ -4,29 +4,19 @@
 
 namespace miqu {
 
+/**
+ * CircleImageView is a specialized ImageView that clips its content into a circle.
+ * Note: ImageView now supports .circle(true), .border(), and .rotation() natively.
+ * CircleImageView is retained as a subclass for seamless backward compatibility.
+ */
 class CircleImageView : public ImageView {
 public:
-    CircleImageView() = default;
-    explicit CircleImageView(std::string source) : ImageView(std::move(source)) {}
-
-    void set_border(int width, const Color& color) {
-        m_border_width = std::max(0, width);
-        m_border_color = color;
+    CircleImageView() {
+        set_circle(true);
     }
-    int get_border_width() const { return m_border_width; }
-    const Color& get_border_color() const { return m_border_color; }
-
-    void set_rotation_angle(double degrees) {
-        m_rotation_degrees = degrees;
+    explicit CircleImageView(std::string source) : ImageView(std::move(source)) {
+        set_circle(true);
     }
-    double get_rotation_angle() const { return m_rotation_degrees; }
-
-    void draw(cairo_t* cr, const Rect& bounds) override;
-
-private:
-    int m_border_width = 0;
-    Color m_border_color = Color::transparent();
-    double m_rotation_degrees = 0.0;
 };
 
 class CircleImageViewBuilder : public std::enable_shared_from_this<CircleImageViewBuilder> {

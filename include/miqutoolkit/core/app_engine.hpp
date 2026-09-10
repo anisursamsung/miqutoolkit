@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <mutex>
 
 struct zwlr_layer_shell_v1;
 struct zwlr_foreign_toplevel_manager_v1;
@@ -23,6 +24,9 @@ public:
 
     int enter_loop();
     void quit(int exit_code = 0);
+
+    void post(std::function<void()> task);
+    void request_redraw_all();
 
     struct wl_display* get_display() const { return m_display; }
     struct wl_compositor* get_compositor() const { return m_compositor; }
@@ -65,6 +69,10 @@ private:
     bool m_running = false;
     int m_exit_code = 0;
     std::vector<std::shared_ptr<Window>> m_windows;
+
+    int m_wakeup_fd = -1;
+    std::mutex m_tasks_mutex;
+    std::vector<std::function<void()>> m_posted_tasks;
 };
 
 } // namespace miqu

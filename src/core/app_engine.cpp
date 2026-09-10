@@ -6,6 +6,10 @@
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <sys/eventfd.h>
+#include <poll.h>
+#include <unistd.h>
+#include <errno.h>
 #include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
@@ -54,6 +58,11 @@ std::shared_ptr<AppEngine> AppEngine::create() {
 AppEngine::~AppEngine() {
     m_windows.clear();
 
+    if (m_wakeup_fd >= 0) {
+        close(m_wakeup_fd);
+        m_wakeup_fd = -1;
+    }
+
     if (m_ext_workspace_manager) ext_workspace_manager_v1_destroy(m_ext_workspace_manager);
     if (m_foreign_toplevel_manager) zwlr_foreign_toplevel_manager_v1_destroy(m_foreign_toplevel_manager);
     if (m_xdg_wm_base) xdg_wm_base_destroy(m_xdg_wm_base);
@@ -70,6 +79,11 @@ AppEngine::~AppEngine() {
 }
 
 bool AppEngine::init() {
+    m_wakeup_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (m_wakeup_fd < 0) {
+        std::cerr << "[miqutoolkit] Failed to create eventfd for AppEngine." << std::endl;
+    }
+
     m_display = wl_display_connect(nullptr);
     if (!m_display) {
         std::cerr << "[miqutoolkit] Failed to connect to Wayland display." << std::endl;
@@ -149,10 +163,82 @@ void AppEngine::unregister_window(std::shared_ptr<Window> win) {
     }
 }
 
+void AppEngine::post(std::function<void()> task) {
+    if (!task) return;
+    {
+        std::lock_guard<std::mutex> lock(m_tasks_mutex);
+        m_posted_tasks.push_back(std::move(task));
+    }
+    if (m_wakeup_fd >= 0) {
+        uint64_t val = 1;
+        ssize_t s = write(m_wakeup_fd, &val, sizeof(val));
+        (void)s;
+    }
+}
+
+void AppEngine::request_redraw_all() {
+    for (auto& win : m_windows) {
+        if (win) {
+            win->schedule_redraw();
+        }
+    }
+}
+
 int AppEngine::enter_loop() {
     m_running = true;
+    int display_fd = wl_display_get_fd(m_display);
+
     while (m_running && !m_windows.empty()) {
-        if (wl_display_dispatch(m_display) < 0) {
+        while (wl_display_prepare_read(m_display) != 0) {
+            wl_display_dispatch_pending(m_display);
+        }
+        wl_display_flush(m_display);
+
+        struct pollfd pfd[2];
+        pfd[0].fd = display_fd;
+        pfd[0].events = POLLIN;
+        pfd[0].revents = 0;
+
+        pfd[1].fd = m_wakeup_fd;
+        pfd[1].events = POLLIN;
+        pfd[1].revents = 0;
+
+        int nfds = (m_wakeup_fd >= 0) ? 2 : 1;
+        int ret = poll(pfd, nfds, -1);
+
+        if (ret < 0) {
+            if (errno == EINTR) {
+                wl_display_cancel_read(m_display);
+                continue;
+            }
+            wl_display_cancel_read(m_display);
+            break;
+        }
+
+        if (m_wakeup_fd >= 0 && (pfd[1].revents & POLLIN)) {
+            uint64_t val = 0;
+            ssize_t s = read(m_wakeup_fd, &val, sizeof(val));
+            (void)s;
+
+            std::vector<std::function<void()>> tasks_to_run;
+            {
+                std::lock_guard<std::mutex> lock(m_tasks_mutex);
+                tasks_to_run.swap(m_posted_tasks);
+            }
+            for (auto& t : tasks_to_run) {
+                if (t) t();
+            }
+        }
+
+        if (pfd[0].revents & POLLIN) {
+            if (wl_display_read_events(m_display) < 0) {
+                break;
+            }
+        } else {
+            wl_display_cancel_read(m_display);
+        }
+
+        if (wl_display_dispatch_pending(m_display) < 0) {
             break;
         }
     }
@@ -162,6 +248,11 @@ int AppEngine::enter_loop() {
 void AppEngine::quit(int exit_code) {
     m_exit_code = exit_code;
     m_running = false;
+    if (m_wakeup_fd >= 0) {
+        uint64_t val = 1;
+        ssize_t s = write(m_wakeup_fd, &val, sizeof(val));
+        (void)s;
+    }
 }
 
 } // namespace miqu

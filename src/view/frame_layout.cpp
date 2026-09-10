@@ -27,6 +27,15 @@ Size FrameLayout::measure_size() const {
 void FrameLayout::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
+    draw_background(cr, bounds);
+
+    bool needs_clip = (m_corner_radius > 0);
+    if (needs_clip) {
+        cairo_save(cr);
+        draw_rounded_rect(cr, bounds.x, bounds.y, bounds.width, bounds.height, m_corner_radius);
+        cairo_clip(cr);
+    }
+
     m_child_entries.clear();
 
     Rect content_rect = get_content_rect(bounds);
@@ -35,7 +44,11 @@ void FrameLayout::draw(cairo_t* cr, const Rect& bounds) {
     int origin_x = content_rect.x + m_margin.left;
     int origin_y = content_rect.y + m_margin.top;
 
-    if (avail_w <= 0 || avail_h <= 0) return;
+    if (avail_w <= 0 || avail_h <= 0) {
+        if (needs_clip) cairo_restore(cr);
+        draw_stroke(cr, bounds);
+        return;
+    }
 
     for (const auto& child : m_children) {
         if (!child || child->get_visibility() == Visibility::Gone) continue;
@@ -87,6 +100,11 @@ void FrameLayout::draw(cairo_t* cr, const Rect& bounds) {
         m_child_entries.push_back({child, child_bounds});
         child->draw(cr, child_bounds);
     }
+
+    if (needs_clip) {
+        cairo_restore(cr);
+    }
+    draw_stroke(cr, bounds);
 }
 
 } // namespace miqu

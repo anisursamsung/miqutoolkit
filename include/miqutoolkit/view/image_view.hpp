@@ -12,6 +12,11 @@ enum class FitMode {
     Center,  // Keeps target size, centered within bounds
 };
 
+enum class ImageQuality {
+    FullOriginal, // Default: full native original quality, direct decode
+    ThumbnailFast // Explicitly requested: uses FreeDesktop persistent disk thumbnail cache (~/.cache/thumbnails)
+};
+
 class ImageView : public View {
 public:
     ImageView() = default;
@@ -26,8 +31,24 @@ public:
     void set_fit_mode(FitMode mode) { m_fit_mode = mode; }
     FitMode get_fit_mode() const { return m_fit_mode; }
 
+    void set_quality_mode(ImageQuality quality) { m_quality = quality; }
+    ImageQuality get_quality_mode() const { return m_quality; }
+
     void set_corner_radius(int radius) { m_corner_radius = radius; }
     int get_corner_radius() const { return m_corner_radius; }
+
+    void set_circle(bool circle) { m_circle = circle; }
+    bool is_circle() const { return m_circle; }
+
+    void set_border(int width, const Color& color) {
+        m_border_width = std::max(0, width);
+        m_border_color = color;
+    }
+    int get_border_width() const { return m_border_width; }
+    const Color& get_border_color() const { return m_border_color; }
+
+    void set_rotation_angle(double degrees) { m_rotation_degrees = degrees; }
+    double get_rotation_angle() const { return m_rotation_degrees; }
 
     void set_alpha(float opacity) { m_opacity = opacity; }
     float get_alpha() const { return m_opacity; }
@@ -36,13 +57,19 @@ public:
     Size measure_size() const override { return Size(m_target_size, m_target_size); }
 
     static std::string resolve_icon_path(const std::string& icon_name);
+    static void preload(const std::string& source, ImageQuality quality = ImageQuality::ThumbnailFast);
     static void clear_cache();
 
 private:
     std::string m_source;
     int m_target_size = 48;
     FitMode m_fit_mode = FitMode::Contain;
+    ImageQuality m_quality = ImageQuality::FullOriginal;
     int m_corner_radius = 0;
+    bool m_circle = false;
+    int m_border_width = 0;
+    Color m_border_color = Color::transparent();
+    double m_rotation_degrees = 0.0;
     float m_opacity = 1.0f;
 };
 
@@ -56,6 +83,11 @@ public:
 
     std::shared_ptr<ImageViewBuilder> source(std::string src) {
         m_view->set_image_resource(std::move(src));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> qualityMode(ImageQuality quality) {
+        m_view->set_quality_mode(quality);
         return shared_from_this();
     }
 
@@ -76,6 +108,21 @@ public:
 
     std::shared_ptr<ImageViewBuilder> cornerRadius(int radius) {
         m_view->set_corner_radius(radius);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> circle(bool c = true) {
+        m_view->set_circle(c);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> border(int width, const Color& color) {
+        m_view->set_border(width, color);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> rotation(double degrees) {
+        m_view->set_rotation_angle(degrees);
         return shared_from_this();
     }
 

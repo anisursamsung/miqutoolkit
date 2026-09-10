@@ -93,9 +93,11 @@ add_library(miqutoolkit SHARED
     src/view/seek_bar.cpp
     src/view/circle_image_view.cpp
     src/view/image_button.cpp
+    src/view/tile_view.cpp
     src/system/window_manager.cpp
     src/system/workspace_manager.cpp
     src/system/output_manager.cpp
+    src/system/app_manager.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.c
     ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-client-protocol.h

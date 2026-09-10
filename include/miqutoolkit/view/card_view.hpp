@@ -6,28 +6,19 @@ namespace miqu {
 
 class CardView : public FrameLayout {
 public:
-    CardView() = default;
+    CardView() {
+        m_corner_radius = -1; // -1 denotes default from theme metrics
+    }
 
-    void set_card_background_color(const Color& color) { m_background_color = color; m_has_custom_bg = true; }
-    const Color& get_card_background_color() const { return m_background_color; }
+    void set_card_background_color(const Color& color) { set_background_color(color); }
+    const Color& get_card_background_color() const { return get_background_color(); }
 
-    void set_stroke(int width, const Color& color) { m_stroke_width = width; m_stroke_color = color; }
-    int get_stroke_width() const { return m_stroke_width; }
-    const Color& get_stroke_color() const { return m_stroke_color; }
-
-    void set_radius(int radius) { m_corner_radius = radius; }
-    int get_radius() const { return m_corner_radius; }
+    void set_radius(int radius) { set_corner_radius(radius); }
+    int get_radius() const { return get_corner_radius(); }
 
     void draw(cairo_t* cr, const Rect& bounds) override;
 
     static void draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r);
-
-private:
-    Color m_background_color;
-    bool m_has_custom_bg = false;
-    int m_stroke_width = 0;
-    Color m_stroke_color = Color::transparent();
-    int m_corner_radius = -1;
 };
 
 class CardViewBuilder : public std::enable_shared_from_this<CardViewBuilder> {

@@ -1,6 +1,8 @@
 #include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/view/card_view.hpp"
 #include "miqutoolkit/core/config.hpp"
+#include "miqutoolkit/core/thread_pool.hpp"
+#include "miqutoolkit/core/app_engine.hpp"
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <filesystem>
 #include <fstream>
@@ -8,16 +10,23 @@
 #include <map>
 #include <vector>
 #include <set>
+#include <unordered_set>
+#include <mutex>
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <unistd.h>
 
 namespace miqu {
 
 namespace fs = std::filesystem;
 
+static std::mutex s_cache_mutex;
 static std::map<std::string, cairo_surface_t*> s_surface_cache;
 static std::map<std::string, std::string> s_path_cache;
+
+static std::mutex s_pending_mutex;
+static std::unordered_set<std::string> s_pending_thumbnails;
 
 static std::string trim_str(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n\"'");
@@ -32,6 +41,7 @@ static std::string str_to_lower(std::string s) {
 }
 
 void ImageView::clear_cache() {
+    std::lock_guard<std::mutex> lock(s_cache_mutex);
     for (auto& pair : s_surface_cache) {
         if (pair.second) {
             cairo_surface_destroy(pair.second);
@@ -177,12 +187,98 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
     if (user_theme.empty()) user_theme = "Papirus";
 
     std::string cache_key = user_theme + ":" + icon_name;
-    auto it = s_path_cache.find(cache_key);
-    if (it != s_path_cache.end()) {
-        return it->second;
+    {
+        std::lock_guard<std::mutex> lock(s_cache_mutex);
+        auto it = s_path_cache.find(cache_key);
+        if (it != s_path_cache.end()) {
+            return it->second;
+        }
     }
 
-    auto base_roots = get_icon_base_roots();
+    static std::mutex s_theme_hierarchy_mutex;
+    static std::map<std::string, std::vector<std::string>> s_cached_theme_search_dirs;
+
+    std::vector<std::string> search_dirs_to_check;
+    {
+        std::lock_guard<std::mutex> lock(s_theme_hierarchy_mutex);
+        auto th_it = s_cached_theme_search_dirs.find(user_theme);
+        if (th_it != s_cached_theme_search_dirs.end()) {
+            search_dirs_to_check = th_it->second;
+        } else {
+            auto base_roots = get_icon_base_roots();
+            std::vector<std::string> theme_search_list;
+            std::set<std::string> visited_themes;
+
+            auto add_theme = [&](const std::string& t) {
+                if (t.empty()) return;
+                std::string lt = str_to_lower(t);
+                if (visited_themes.find(lt) == visited_themes.end()) {
+                    visited_themes.insert(lt);
+                    theme_search_list.push_back(t);
+                }
+            };
+
+            add_theme(user_theme);
+
+            for (size_t i = 0; i < theme_search_list.size(); ++i) {
+                std::string t = theme_search_list[i];
+                auto dirs = get_all_theme_dirs(t, base_roots);
+                for (const auto& t_dir : dirs) {
+                    std::vector<std::string> inherits, subdirs;
+                    parse_index_theme(t_dir, inherits, subdirs);
+                    for (const auto& inh : inherits) {
+                        add_theme(inh);
+                    }
+                }
+            }
+
+            add_theme("Papirus");
+            add_theme("Papirus-Dark");
+            add_theme("hicolor");
+            add_theme("Adwaita");
+            add_theme("breeze");
+
+            const std::vector<std::string> fallback_subdirs = {
+                "scalable/apps", "48x48/apps", "64x64/apps", "32x32/apps", "128x128/apps", "256x256/apps", "512x512/apps",
+                "24x24/apps", "22x22/apps", "16x16/apps", "16/apps", "22/apps", "24/apps", "32/apps", "48/apps", "64/apps", "128/apps", "apps",
+                "scalable/categories", "48x48/categories", "scalable/devices", "48x48/devices",
+                "scalable/places", "48x48/places", "scalable/mimetypes", "48x48/mimetypes",
+                "scalable/actions", "48x48/actions", "scalable/status", "48x48/status",
+                "symbolic/apps", "symbolic",
+                "48x48", "64x64", "32x32", "scalable", ""
+            };
+
+            std::set<std::string> existing_dirs_seen;
+            for (const auto& th : theme_search_list) {
+                auto theme_dirs = get_all_theme_dirs(th, base_roots);
+                if (theme_dirs.empty()) continue;
+
+                for (const auto& theme_dir : theme_dirs) {
+                    std::vector<std::string> inherits, theme_subdirs;
+                    parse_index_theme(theme_dir, inherits, theme_subdirs);
+
+                    std::vector<std::string> subdirs_to_check = fallback_subdirs;
+                    for (const auto& d : theme_subdirs) {
+                        if (std::find(subdirs_to_check.begin(), subdirs_to_check.end(), d) == subdirs_to_check.end()) {
+                            subdirs_to_check.push_back(d);
+                        }
+                    }
+
+                    for (const auto& sub : subdirs_to_check) {
+                        std::string search_dir = sub.empty() ? theme_dir : (theme_dir + "/" + sub);
+                        if (existing_dirs_seen.find(search_dir) == existing_dirs_seen.end()) {
+                            if (fs::exists(search_dir)) {
+                                existing_dirs_seen.insert(search_dir);
+                                search_dirs_to_check.push_back(search_dir);
+                            }
+                        }
+                    }
+                }
+            }
+
+            s_cached_theme_search_dirs[user_theme] = search_dirs_to_check;
+        }
+    }
 
     std::string clean_name = icon_name;
     for (const char* ext : {".svg", ".png", ".xpm", ".jpg", ".jpeg", ".ico"}) {
@@ -205,77 +301,16 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
         name_candidates.push_back(clean_name + "-symbolic");
     }
 
-    std::vector<std::string> theme_search_list;
-    std::set<std::string> visited_themes;
-
-    auto add_theme = [&](const std::string& t) {
-        if (t.empty()) return;
-        std::string lt = str_to_lower(t);
-        if (visited_themes.find(lt) == visited_themes.end()) {
-            visited_themes.insert(lt);
-            theme_search_list.push_back(t);
-        }
-    };
-
-    add_theme(user_theme);
-
-    for (size_t i = 0; i < theme_search_list.size(); ++i) {
-        std::string t = theme_search_list[i];
-        auto dirs = get_all_theme_dirs(t, base_roots);
-        for (const auto& t_dir : dirs) {
-            std::vector<std::string> inherits, subdirs;
-            parse_index_theme(t_dir, inherits, subdirs);
-            for (const auto& inh : inherits) {
-                add_theme(inh);
-            }
-        }
-    }
-
-    add_theme("Papirus");
-    add_theme("Papirus-Dark");
-    add_theme("hicolor");
-    add_theme("Adwaita");
-    add_theme("breeze");
-
     const std::vector<std::string> exts = { ".svg", ".png", ".xpm", ".jpg", "" };
 
-    const std::vector<std::string> fallback_subdirs = {
-        "scalable/apps", "48x48/apps", "64x64/apps", "32x32/apps", "128x128/apps", "256x256/apps", "512x512/apps",
-        "24x24/apps", "22x22/apps", "16x16/apps", "16/apps", "22/apps", "24/apps", "32/apps", "48/apps", "64/apps", "128/apps", "apps",
-        "scalable/categories", "48x48/categories", "scalable/devices", "48x48/devices",
-        "scalable/places", "48x48/places", "scalable/mimetypes", "48x48/mimetypes",
-        "scalable/actions", "48x48/actions", "scalable/status", "48x48/status",
-        "symbolic/apps", "symbolic",
-        "48x48", "64x64", "32x32", "scalable", ""
-    };
-
-    for (const auto& th : theme_search_list) {
-        auto theme_dirs = get_all_theme_dirs(th, base_roots);
-        if (theme_dirs.empty()) continue;
-
-        for (const auto& theme_dir : theme_dirs) {
-            std::vector<std::string> inherits, theme_subdirs;
-            parse_index_theme(theme_dir, inherits, theme_subdirs);
-
-            std::vector<std::string> subdirs_to_check = fallback_subdirs;
-            for (const auto& d : theme_subdirs) {
-                if (std::find(subdirs_to_check.begin(), subdirs_to_check.end(), d) == subdirs_to_check.end()) {
-                    subdirs_to_check.push_back(d);
-                }
-            }
-
-            for (const auto& name_cand : name_candidates) {
-                for (const auto& sub : subdirs_to_check) {
-                    std::string search_dir = sub.empty() ? theme_dir : (theme_dir + "/" + sub);
-                    if (!fs::exists(search_dir)) continue;
-
-                    for (const auto& ext : exts) {
-                        std::string candidate = search_dir + "/" + name_cand + ext;
-                        if (fs::exists(candidate) && !fs::is_directory(candidate)) {
-                            s_path_cache[cache_key] = candidate;
-                            return candidate;
-                        }
-                    }
+    for (const auto& search_dir : search_dirs_to_check) {
+        for (const auto& name_cand : name_candidates) {
+            for (const auto& ext : exts) {
+                std::string candidate = search_dir + "/" + name_cand + ext;
+                if (fs::exists(candidate) && !fs::is_directory(candidate)) {
+                    std::lock_guard<std::mutex> lock(s_cache_mutex);
+                    s_path_cache[cache_key] = candidate;
+                    return candidate;
                 }
             }
         }
@@ -307,56 +342,48 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
     return "";
 }
 
-static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w, int box_h, FitMode fit_mode, int target_size) {
-    if (path_or_name.empty() || box_w <= 0 || box_h <= 0) return nullptr;
-
-    std::string resolved = ImageView::resolve_icon_path(path_or_name);
-    if (resolved.empty() || !fs::exists(resolved)) {
-        return nullptr;
+static std::string get_thumbnail_cache_dir(bool large) {
+    const char* xdg_cache = getenv("XDG_CACHE_HOME");
+    std::string base;
+    if (xdg_cache && *xdg_cache) {
+        base = xdg_cache;
+    } else {
+        const char* home = getenv("HOME");
+        base = home ? std::string(home) + "/.cache" : "/tmp";
     }
+    std::string dir = base + "/thumbnails/" + (large ? "large" : "normal");
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return dir;
+}
 
-    int req_w = box_w;
-    int req_h = box_h;
-    gboolean preserve_aspect = TRUE;
-
-    if (fit_mode == FitMode::Center) {
-        req_w = (target_size > 0) ? target_size : box_w;
-        req_h = (target_size > 0) ? target_size : box_h;
-        preserve_aspect = TRUE;
-    } else if (fit_mode == FitMode::Fill) {
-        req_w = box_w;
-        req_h = box_h;
-        preserve_aspect = FALSE;
-    } else if (fit_mode == FitMode::Cover) {
-        int orig_w = 0, orig_h = 0;
-        if (gdk_pixbuf_get_file_info(resolved.c_str(), &orig_w, &orig_h) && orig_w > 0 && orig_h > 0) {
-            double scale = std::max(static_cast<double>(box_w) / orig_w, static_cast<double>(box_h) / orig_h);
-            req_w = std::max(1, static_cast<int>(std::round(orig_w * scale)));
-            req_h = std::max(1, static_cast<int>(std::round(orig_h * scale)));
+static std::string escape_uri(const std::string& path) {
+    std::string out;
+    out.reserve(path.size() * 3);
+    for (unsigned char c : path) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '/' || c == '.' || c == '_' || c == '-' || c == '~') {
+            out.push_back(c);
         } else {
-            req_w = std::max(box_w, box_h);
-            req_h = req_w;
+            char hex[4];
+            snprintf(hex, sizeof(hex), "%%%02X", c);
+            out.append(hex);
         }
-        preserve_aspect = TRUE;
-    } else { // FitMode::Contain
-        req_w = box_w;
-        req_h = box_h;
-        preserve_aspect = TRUE;
     }
+    return out;
+}
 
-    std::string cache_key = resolved + "@" + std::to_string(req_w) + "x" + std::to_string(req_h) +
-                            (preserve_aspect ? "p" : "s");
-    auto it = s_surface_cache.find(cache_key);
-    if (it != s_surface_cache.end() && it->second != nullptr) {
-        return it->second;
-    }
+static std::string get_thumbnail_file(const std::string& canonical_path, bool large) {
+    std::string uri = "file://" + escape_uri(canonical_path);
+    char* checksum = g_compute_checksum_for_string(G_CHECKSUM_MD5, uri.c_str(), -1);
+    if (!checksum) return "";
+    std::string filename = std::string(checksum) + ".png";
+    g_free(checksum);
+    return get_thumbnail_cache_dir(large) + "/" + filename;
+}
 
-    GError* error = nullptr;
-    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(resolved.c_str(), req_w, req_h, preserve_aspect, &error);
-    if (!pixbuf) {
-        if (error) g_error_free(error);
-        return nullptr;
-    }
+static cairo_surface_t* pixbuf_to_cairo_surface(GdkPixbuf* pixbuf) {
+    if (!pixbuf) return nullptr;
 
     int p_width = gdk_pixbuf_get_width(pixbuf);
     int p_height = gdk_pixbuf_get_height(pixbuf);
@@ -386,52 +413,335 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
         }
     }
     cairo_surface_mark_dirty(surf);
-    g_object_unref(pixbuf);
-
-    s_surface_cache[cache_key] = surf;
     return surf;
 }
+
+void ImageView::preload(const std::string& source, ImageQuality quality) {
+    if (source.empty() || quality != ImageQuality::ThumbnailFast) return;
+
+    std::string resolved = ImageView::resolve_icon_path(source);
+    if (resolved.empty() || !fs::exists(resolved)) return;
+
+    std::error_code ec;
+    fs::path can_path = fs::canonical(resolved, ec);
+    std::string effective_path = ec ? resolved : can_path.string();
+    std::string thumb_file = get_thumbnail_file(effective_path, true);
+    if (thumb_file.empty()) return;
+
+    if (fs::exists(thumb_file)) {
+        std::error_code tec, oec;
+        auto thumb_time = fs::last_write_time(thumb_file, tec);
+        auto orig_time = fs::last_write_time(effective_path, oec);
+        if (!tec && !oec && thumb_time >= orig_time) {
+            return;
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(s_pending_mutex);
+        if (s_pending_thumbnails.count(effective_path) > 0) {
+            return;
+        }
+        s_pending_thumbnails.insert(effective_path);
+    }
+
+    ThreadPool::get().enqueue([effective_path, thumb_file]() {
+        GError* gen_err = nullptr;
+        GdkPixbuf* gen_pix = gdk_pixbuf_new_from_file_at_scale(effective_path.c_str(), 256, 256, TRUE, &gen_err);
+        if (gen_pix) {
+            std::string tmp_file = thumb_file + ".tmp." + std::to_string(getpid()) + "." + std::to_string(rand());
+            GError* save_err = nullptr;
+            if (gdk_pixbuf_save(gen_pix, tmp_file.c_str(), "png", &save_err, "compression", "1", nullptr)) {
+                rename(tmp_file.c_str(), thumb_file.c_str());
+            } else {
+                unlink(tmp_file.c_str());
+                if (save_err) g_error_free(save_err);
+            }
+            g_object_unref(gen_pix);
+
+            if (AppEngine::instance()) {
+                AppEngine::instance()->post([]() {
+                    if (AppEngine::instance()) {
+                        AppEngine::instance()->request_redraw_all();
+                    }
+                });
+            }
+        } else {
+            if (gen_err) g_error_free(gen_err);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(s_pending_mutex);
+            s_pending_thumbnails.erase(effective_path);
+        }
+    });
+}
+
+static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w, int box_h, FitMode fit_mode, int target_size, ImageQuality quality) {
+    if (path_or_name.empty() || box_w <= 0 || box_h <= 0) return nullptr;
+
+    std::string resolved = ImageView::resolve_icon_path(path_or_name);
+    if (resolved.empty() || !fs::exists(resolved)) {
+        return nullptr;
+    }
+
+    std::string file_to_decode = resolved;
+    if (quality == ImageQuality::ThumbnailFast) {
+        std::error_code ec;
+        fs::path can_path = fs::canonical(resolved, ec);
+        std::string effective_path = ec ? resolved : can_path.string();
+        std::string thumb_file = get_thumbnail_file(effective_path, true); // FreeDesktop 'large' 256x256
+
+        if (!thumb_file.empty()) {
+            bool thumb_valid = false;
+            if (fs::exists(thumb_file)) {
+                std::error_code tec, oec;
+                auto thumb_time = fs::last_write_time(thumb_file, tec);
+                auto orig_time = fs::last_write_time(effective_path, oec);
+                if (!tec && !oec && thumb_time >= orig_time) {
+                    thumb_valid = true;
+                }
+            }
+
+            if (thumb_valid) {
+                file_to_decode = thumb_file;
+            } else {
+                // Cold thumbnail miss: Asynchronously decode on thread pool without freezing UI!
+                {
+                    std::lock_guard<std::mutex> lock(s_pending_mutex);
+                    if (s_pending_thumbnails.count(effective_path) == 0) {
+                        s_pending_thumbnails.insert(effective_path);
+
+                        ThreadPool::get().enqueue([effective_path, thumb_file]() {
+                            GError* gen_err = nullptr;
+                            GdkPixbuf* gen_pix = gdk_pixbuf_new_from_file_at_scale(effective_path.c_str(), 256, 256, TRUE, &gen_err);
+                            if (gen_pix) {
+                                std::string tmp_file = thumb_file + ".tmp." + std::to_string(getpid()) + "." + std::to_string(rand());
+                                GError* save_err = nullptr;
+                                if (gdk_pixbuf_save(gen_pix, tmp_file.c_str(), "png", &save_err, "compression", "1", nullptr)) {
+                                    rename(tmp_file.c_str(), thumb_file.c_str());
+                                } else {
+                                    unlink(tmp_file.c_str());
+                                    if (save_err) g_error_free(save_err);
+                                }
+                                g_object_unref(gen_pix);
+
+                                if (AppEngine::instance()) {
+                                    AppEngine::instance()->post([]() {
+                                        if (AppEngine::instance()) {
+                                            AppEngine::instance()->request_redraw_all();
+                                        }
+                                    });
+                                }
+                            } else {
+                                if (gen_err) g_error_free(gen_err);
+                            }
+
+                            {
+                                std::lock_guard<std::mutex> lock(s_pending_mutex);
+                                s_pending_thumbnails.erase(effective_path);
+                            }
+                        });
+                    }
+                }
+                // Return null so the view immediately draws a placeholder
+                return nullptr;
+            }
+        }
+    }
+
+    int req_w = box_w;
+    int req_h = box_h;
+    gboolean preserve_aspect = TRUE;
+
+    if (fit_mode == FitMode::Center) {
+        req_w = (target_size > 0) ? target_size : box_w;
+        req_h = (target_size > 0) ? target_size : box_h;
+        preserve_aspect = TRUE;
+    } else if (fit_mode == FitMode::Fill) {
+        req_w = box_w;
+        req_h = box_h;
+        preserve_aspect = FALSE;
+    } else if (fit_mode == FitMode::Cover) {
+        int orig_w = 0, orig_h = 0;
+        if (gdk_pixbuf_get_file_info(file_to_decode.c_str(), &orig_w, &orig_h) && orig_w > 0 && orig_h > 0) {
+            double scale = std::max(static_cast<double>(box_w) / orig_w, static_cast<double>(box_h) / orig_h);
+            req_w = std::max(1, static_cast<int>(std::round(orig_w * scale)));
+            req_h = std::max(1, static_cast<int>(std::round(orig_h * scale)));
+        } else {
+            req_w = std::max(box_w, box_h);
+            req_h = req_w;
+        }
+        preserve_aspect = TRUE;
+    } else { // FitMode::Contain
+        req_w = box_w;
+        req_h = box_h;
+        preserve_aspect = TRUE;
+    }
+
+    std::string cache_key = file_to_decode + "@" + std::to_string(req_w) + "x" + std::to_string(req_h) +
+                            (preserve_aspect ? "p" : "s");
+
+    {
+        std::lock_guard<std::mutex> lock(s_cache_mutex);
+        auto it = s_surface_cache.find(cache_key);
+        if (it != s_surface_cache.end() && it->second != nullptr) {
+            return it->second;
+        }
+    }
+
+    GError* error = nullptr;
+    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(file_to_decode.c_str(), req_w, req_h, preserve_aspect, &error);
+    if (!pixbuf) {
+        if (error) g_error_free(error);
+        return nullptr;
+    }
+
+    cairo_surface_t* surf = pixbuf_to_cairo_surface(pixbuf);
+    g_object_unref(pixbuf);
+
+    if (surf) {
+        std::lock_guard<std::mutex> lock(s_cache_mutex);
+        s_surface_cache[cache_key] = surf;
+    }
+    return surf;
+}
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 void ImageView::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    cairo_surface_t* surf = load_surface(m_source, bounds.width, bounds.height, m_fit_mode, m_target_size);
+    int draw_x = bounds.x + m_margin.left + m_padding.left;
+    int draw_y = bounds.y + m_margin.top + m_padding.top;
+    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right - m_padding.left - m_padding.right);
+    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom - m_padding.top - m_padding.bottom);
+    if (draw_w <= 0 || draw_h <= 0) return;
+
+    double cx = draw_x + draw_w / 2.0;
+    double cy = draw_y + draw_h / 2.0;
+    double radius = std::min(draw_w, draw_h) / 2.0;
 
     cairo_save(cr);
 
-    // Apply corner radius or rectangular clipping
-    if (m_corner_radius > 0) {
-        CardView::draw_rounded_rect(cr, bounds.x, bounds.y, bounds.width, bounds.height, m_corner_radius);
+    // Apply clipping: circle, rounded rect, or rect
+    if (m_circle) {
+        cairo_arc(cr, cx, cy, radius, 0, 2.0 * M_PI);
+        cairo_clip(cr);
+    } else if (m_corner_radius > 0) {
+        CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius);
         cairo_clip(cr);
     } else {
-        cairo_rectangle(cr, bounds.x, bounds.y, bounds.width, bounds.height);
+        cairo_rectangle(cr, draw_x, draw_y, draw_w, draw_h);
         cairo_clip(cr);
     }
 
-    if (!surf) {
-        cairo_set_source_rgba(cr, 0.20, 0.22, 0.32, 0.85);
-        cairo_fill_preserve(cr);
+    // Optional rotation around center
+    if (std::abs(m_rotation_degrees) > 0.001) {
+        double rad = m_rotation_degrees * (M_PI / 180.0);
+        cairo_translate(cr, cx, cy);
+        cairo_rotate(cr, rad);
+        cairo_translate(cr, -cx, -cy);
+    }
 
-        cairo_set_source_rgba(cr, 0.40, 0.45, 0.65, 0.9);
-        cairo_set_line_width(cr, 1.0);
-        cairo_stroke(cr);
+    cairo_surface_t* surf = load_surface(m_source, draw_w, draw_h, m_fit_mode, m_target_size, m_quality);
+    if (!surf) {
+        auto config = Config::get();
+        // Subtle themed placeholder card
+        if (m_circle) {
+            cairo_arc(cr, cx, cy, radius, 0, 2.0 * M_PI);
+        } else {
+            CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius > 0 ? m_corner_radius : 6.0);
+        }
+        cairo_set_source_rgba(cr, config->colors.surface_variant.r,
+                                  config->colors.surface_variant.g,
+                                  config->colors.surface_variant.b,
+                                  0.45f);
+        cairo_fill(cr);
+
+        // Minimalist photo icon outline in center
+        int icon_sz = std::min(draw_w, draw_h) / 3;
+        if (icon_sz >= 14) {
+            double icx = draw_x + (draw_w - icon_sz) / 2.0;
+            double icy = draw_y + (draw_h - icon_sz) / 2.0;
+            CardView::draw_rounded_rect(cr, icx, icy, icon_sz, icon_sz * 0.75, 3.0);
+            cairo_set_source_rgba(cr, config->colors.on_surface_variant.r,
+                                      config->colors.on_surface_variant.g,
+                                      config->colors.on_surface_variant.b,
+                                      0.35f);
+            cairo_set_line_width(cr, 1.5);
+            cairo_stroke(cr);
+
+            // Small circle inside
+            cairo_arc(cr, icx + icon_sz * 0.3, icy + icon_sz * 0.25, icon_sz * 0.1, 0, 2 * M_PI);
+            cairo_fill(cr);
+        }
         cairo_restore(cr);
+
+        if (m_border_width > 0 && m_border_color.a > 0.0f) {
+            cairo_save(cr);
+            double stroke_offset = m_border_width / 2.0;
+            if (m_circle) {
+                cairo_arc(cr, cx, cy, std::max(0.0, radius - stroke_offset), 0, 2.0 * M_PI);
+            } else if (m_corner_radius > 0) {
+                CardView::draw_rounded_rect(cr, draw_x + stroke_offset,
+                                                draw_y + stroke_offset,
+                                                draw_w - m_border_width,
+                                                draw_h - m_border_width,
+                                                std::max(0.0, m_corner_radius - stroke_offset));
+            } else {
+                cairo_rectangle(cr, draw_x + stroke_offset,
+                                    draw_y + stroke_offset,
+                                    draw_w - m_border_width,
+                                    draw_h - m_border_width);
+            }
+            cairo_set_source_rgba(cr, m_border_color.r, m_border_color.g, m_border_color.b, m_border_color.a);
+            cairo_set_line_width(cr, m_border_width);
+            cairo_stroke(cr);
+            cairo_restore(cr);
+        }
         return;
     }
 
     int surf_w = cairo_image_surface_get_width(surf);
     int surf_h = cairo_image_surface_get_height(surf);
 
-    double draw_x = bounds.x + (bounds.width - surf_w) / 2.0;
-    double draw_y = bounds.y + (bounds.height - surf_h) / 2.0;
+    double img_x = draw_x + (draw_w - surf_w) / 2.0;
+    double img_y = draw_y + (draw_h - surf_h) / 2.0;
 
-    cairo_set_source_surface(cr, surf, draw_x, draw_y);
+    cairo_set_source_surface(cr, surf, img_x, img_y);
     if (m_opacity < 1.0f) {
         cairo_paint_with_alpha(cr, m_opacity);
     } else {
         cairo_paint(cr);
     }
     cairo_restore(cr);
+
+    // Optional border stroke
+    if (m_border_width > 0 && m_border_color.a > 0.0f) {
+        cairo_save(cr);
+        double stroke_offset = m_border_width / 2.0;
+        if (m_circle) {
+            cairo_arc(cr, cx, cy, std::max(0.0, radius - stroke_offset), 0, 2.0 * M_PI);
+        } else if (m_corner_radius > 0) {
+            CardView::draw_rounded_rect(cr, draw_x + stroke_offset,
+                                            draw_y + stroke_offset,
+                                            draw_w - m_border_width,
+                                            draw_h - m_border_width,
+                                            std::max(0.0, m_corner_radius - stroke_offset));
+        } else {
+            cairo_rectangle(cr, draw_x + stroke_offset,
+                                draw_y + stroke_offset,
+                                draw_w - m_border_width,
+                                draw_h - m_border_width);
+        }
+        cairo_set_source_rgba(cr, m_border_color.r, m_border_color.g, m_border_color.b, m_border_color.a);
+        cairo_set_line_width(cr, m_border_width);
+        cairo_stroke(cr);
+        cairo_restore(cr);
+    }
 }
 
 } // namespace miqu

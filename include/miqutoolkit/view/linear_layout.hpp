@@ -100,6 +100,21 @@ public:
         return shared_from_this();
     }
 
+    std::shared_ptr<LinearLayoutBuilder> backgroundColor(const Color& color) {
+        m_layout->set_background_color(color);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<LinearLayoutBuilder> stroke(int width, const Color& color) {
+        m_layout->set_stroke(width, color);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<LinearLayoutBuilder> cornerRadius(int radius) {
+        m_layout->set_corner_radius(radius);
+        return shared_from_this();
+    }
+
     std::shared_ptr<LinearLayout> build() {
         return m_layout;
     }

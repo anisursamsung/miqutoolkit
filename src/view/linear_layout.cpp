@@ -44,6 +44,15 @@ Size LinearLayout::measure_size() const {
 void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
+    draw_background(cr, bounds);
+
+    bool needs_clip = (m_corner_radius > 0);
+    if (needs_clip) {
+        cairo_save(cr);
+        draw_rounded_rect(cr, bounds.x, bounds.y, bounds.width, bounds.height, m_corner_radius);
+        cairo_clip(cr);
+    }
+
     m_child_entries.clear();
 
     Rect content_rect = get_content_rect(bounds);
@@ -180,6 +189,11 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
             current_cursor += child_h + margin.top + margin.bottom + m_spacing;
         }
     }
+
+    if (needs_clip) {
+        cairo_restore(cr);
+    }
+    draw_stroke(cr, bounds);
 }
 
 } // namespace miqu
