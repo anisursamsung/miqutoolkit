@@ -41,6 +41,9 @@ public:
     void register_window(std::shared_ptr<Window> win);
     void unregister_window(std::shared_ptr<Window> win);
 
+    void set_quit_on_last_window_closed(bool quit) { m_quit_on_last_window = quit; }
+    bool get_quit_on_last_window_closed() const { return m_quit_on_last_window; }
+
     static AppEngine* instance() { return s_instance; }
 
 private:
@@ -67,6 +70,7 @@ private:
     uint32_t m_seat_capabilities = 0;
 
     bool m_running = false;
+    bool m_quit_on_last_window = true;
     int m_exit_code = 0;
     std::vector<std::shared_ptr<Window>> m_windows;
 

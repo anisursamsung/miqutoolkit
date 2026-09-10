@@ -188,7 +188,7 @@ int AppEngine::enter_loop() {
     m_running = true;
     int display_fd = wl_display_get_fd(m_display);
 
-    while (m_running && !m_windows.empty()) {
+    while (m_running && (!m_quit_on_last_window || !m_windows.empty())) {
         while (wl_display_prepare_read(m_display) != 0) {
             wl_display_dispatch_pending(m_display);
         }

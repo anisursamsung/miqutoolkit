@@ -381,6 +381,10 @@ bool Window::init() {
     return true;
 }
 
+void Window::show() {
+    schedule_redraw();
+}
+
 void Window::set_content_view(std::shared_ptr<View> view) {
     m_root_view = view;
     if (m_root_view) {

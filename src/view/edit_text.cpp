@@ -62,7 +62,20 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
 
     // Text content or placeholder
     bool is_hint = m_text.empty();
-    std::string display_text = is_hint ? m_hint : m_text;
+    std::string display_text;
+    int pango_cursor_index = m_cursor_pos;
+
+    if (is_hint) {
+        display_text = m_hint;
+    } else if (m_password_mode) {
+        display_text = "";
+        for (size_t i = 0; i < m_text.size(); ++i) {
+            display_text += "\xe2\x80\xa2"; // UTF-8 for bullet • (U+2022)
+        }
+        pango_cursor_index = m_cursor_pos * 3;
+    } else {
+        display_text = m_text;
+    }
 
     PangoLayout* layout = pango_cairo_create_layout(cr);
     pango_layout_set_text(layout, display_text.c_str(), -1);
@@ -109,7 +122,7 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
     // Draw Cursor
     if (m_focused && !is_hint) {
         PangoRectangle strong_pos;
-        pango_layout_get_cursor_pos(layout, m_cursor_pos, &strong_pos, nullptr);
+        pango_layout_get_cursor_pos(layout, pango_cursor_index, &strong_pos, nullptr);
 
         double cur_x = text_draw_x + static_cast<double>(strong_pos.x) / PANGO_SCALE;
         double cur_y = text_draw_y + static_cast<double>(strong_pos.y) / PANGO_SCALE;
@@ -140,6 +153,14 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
 
 bool EditText::on_key(const KeyPressEvent& event) {
     if (!m_focused || !event.pressed) return false;
+
+    if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
+        if (m_on_submit) {
+            m_on_submit(m_text);
+            return true;
+        }
+        return false;
+    }
 
     if (event.keysym == XKB_KEY_BackSpace) {
         if (!m_text.empty() && m_cursor_pos > 0) {

@@ -20,6 +20,13 @@ public:
         m_on_text_changed = std::move(cb);
     }
 
+    void set_on_submit_listener(std::function<void(const std::string&)> cb) {
+        m_on_submit = std::move(cb);
+    }
+
+    void set_password_mode(bool enable) { m_password_mode = enable; }
+    bool is_password_mode() const { return m_password_mode; }
+
     void set_focused(bool focus) { m_focused = focus; }
     bool is_focused() const { return m_focused; }
 
@@ -40,8 +47,10 @@ private:
     int m_cursor_pos = 0;
     bool m_focused = true;
     bool m_draw_background = true;
+    bool m_password_mode = false;
 
     std::function<void(std::shared_ptr<EditText>, const std::string&)> m_on_text_changed;
+    std::function<void(const std::string&)> m_on_submit;
 };
 
 class EditTextBuilder : public std::enable_shared_from_this<EditTextBuilder> {
@@ -74,6 +83,16 @@ public:
 
     std::shared_ptr<EditTextBuilder> drawBackground(bool d = true) {
         m_view->set_draw_background(d);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> passwordMode(bool enable = true) {
+        m_view->set_password_mode(enable);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> onSubmit(std::function<void(const std::string&)> cb) {
+        m_view->set_on_submit_listener(std::move(cb));
         return shared_from_this();
     }
 
