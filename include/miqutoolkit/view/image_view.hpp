@@ -10,6 +10,7 @@ enum class FitMode {
     Cover,   // Scales to fill entire bounds, preserving aspect ratio, cropped
     Fill,    // Stretches to fill bounds width & height (ignores aspect ratio)
     Center,  // Keeps target size, centered within bounds
+    Tile,    // Repeats pattern across bounds
 };
 
 enum class ImageQuality {
@@ -53,6 +54,9 @@ public:
     void set_alpha(float opacity) { m_opacity = opacity; }
     float get_alpha() const { return m_opacity; }
 
+    void set_background_color(const Color& color) { m_bg_color = color; }
+    const Color& get_background_color() const { return m_bg_color; }
+
     void draw(cairo_t* cr, const Rect& bounds) override;
     Size measure_size() const override { return Size(m_target_size, m_target_size); }
 
@@ -71,6 +75,7 @@ private:
     Color m_border_color = Color::transparent();
     double m_rotation_degrees = 0.0;
     float m_opacity = 1.0f;
+    Color m_bg_color = Color::transparent();
 };
 
 class ImageViewBuilder : public std::enable_shared_from_this<ImageViewBuilder> {
@@ -83,6 +88,11 @@ public:
 
     std::shared_ptr<ImageViewBuilder> source(std::string src) {
         m_view->set_image_resource(std::move(src));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> backgroundColor(const Color& color) {
+        m_view->set_background_color(color);
         return shared_from_this();
     }
 

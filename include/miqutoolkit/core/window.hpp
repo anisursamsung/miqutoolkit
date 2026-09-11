@@ -16,6 +16,8 @@ struct xdg_surface_listener;
 struct xdg_toplevel;
 struct xdg_toplevel_listener;
 struct wl_cursor_theme;
+struct ext_session_lock_surface_v1;
+struct ext_session_lock_surface_v1_listener;
 
 namespace miqu {
 
@@ -23,10 +25,11 @@ class AppEngine;
 
 enum class WindowRole {
     Toplevel,        // Standard desktop app window (xdg-shell)
-    LayerOverlay,    // Modal overlays, lockscreen
+    LayerOverlay,    // Modal overlays
     LayerTop,        // Top bar, panel
     LayerBottom,     // Bottom bar, dock
     LayerBackground, // Wallpaper
+    SessionLock,     // ext-session-lock-v1 secure lock surface
 };
 
 class Window : public std::enable_shared_from_this<Window> {
@@ -123,8 +126,10 @@ private:
     struct wl_surface* m_surface = nullptr;
     struct wl_output* m_output = nullptr;
     struct zwlr_layer_surface_v1* m_layer_surface = nullptr;
+    struct ext_session_lock_surface_v1* m_session_lock_surface = nullptr;
     struct xdg_surface* m_xdg_surface = nullptr;
     struct xdg_toplevel* m_xdg_toplevel = nullptr;
+    static const struct ::ext_session_lock_surface_v1_listener s_lock_surface_listener;
     struct wl_pointer* m_pointer = nullptr;
     struct wl_keyboard* m_keyboard = nullptr;
     struct wl_callback* m_frame_callback = nullptr;

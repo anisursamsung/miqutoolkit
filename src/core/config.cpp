@@ -1,4 +1,5 @@
 #include "miqutoolkit/core/config.hpp"
+#include "miqutoolkit/core/fs_utils.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -160,6 +161,76 @@ bool Config::load_from_file(const std::string& path) {
     if (!fs::exists(expanded)) return false;
     load_config_file_internal(expanded, colors, metrics, 0);
     return true;
+}
+
+std::string Config::ensure_user_config(
+    const std::string& app_name,
+    const std::string& main_file,
+    const std::vector<std::string>& additional_files
+) {
+    if (app_name.empty()) return "";
+
+    std::string primary = main_file.empty() ? (app_name + ".conf") : main_file;
+
+    // 1. Resolve user config directory
+    std::string user_cfg_dir;
+    const char* xdg_config = getenv("XDG_CONFIG_HOME");
+    if (xdg_config && *xdg_config) {
+        user_cfg_dir = std::string(xdg_config) + "/" + app_name;
+    } else {
+        const char* home = getenv("HOME");
+        if (home && *home) {
+            user_cfg_dir = std::string(home) + "/.config/" + app_name;
+        }
+    }
+    if (user_cfg_dir.empty()) return "";
+
+    std::error_code ec;
+    fs::create_directories(user_cfg_dir, ec);
+
+    std::vector<std::string> all_files = {primary};
+    all_files.insert(all_files.end(), additional_files.begin(), additional_files.end());
+
+    for (const auto& fname : all_files) {
+        fs::path dest = fs::path(user_cfg_dir) / fname;
+        if (fs::exists(dest)) {
+            continue; // File already present in user config, keep user customizations
+        }
+
+        std::vector<std::string> candidates = {
+            "/usr/share/" + app_name + "/" + fname,
+            "/etc/xdg/" + app_name + "/" + fname,
+            "/etc/" + app_name + "/" + fname,
+            "/usr/local/share/" + app_name + "/" + fname,
+            "assets/" + fname,
+            "../assets/" + fname
+        };
+
+        for (const auto& cand : candidates) {
+            if (fs::exists(cand)) {
+                fs::copy_file(cand, dest, fs::copy_options::overwrite_existing, ec);
+                if (!ec) {
+                    std::cout << "[" << app_name << "] Initialized default configuration: copied "
+                              << cand << " to " << dest.string() << "\n";
+                    break;
+                }
+            }
+        }
+    }
+
+    fs::path primary_dest = fs::path(user_cfg_dir) / primary;
+    if (fs::exists(primary_dest)) {
+        return primary_dest.string();
+    }
+    return "";
+}
+
+std::string FsUtils::ensure_user_config(
+    const std::string& app_name,
+    const std::string& main_file,
+    const std::vector<std::string>& additional_files
+) {
+    return Config::ensure_user_config(app_name, main_file, additional_files);
 }
 
 } // namespace miqu

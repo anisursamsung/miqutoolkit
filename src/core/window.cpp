@@ -3,6 +3,7 @@
 #include "miqutoolkit/core/config.hpp"
 #include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+#include "ext-session-lock-v1-client-protocol.h"
 #include <wayland-cursor.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -12,6 +13,27 @@
 #include <algorithm>
 
 namespace miqu {
+
+const struct ext_session_lock_surface_v1_listener Window::s_lock_surface_listener = {
+    .configure = [](void* data, struct ext_session_lock_surface_v1* surface, uint32_t serial, uint32_t width, uint32_t height) {
+        auto* self = static_cast<Window*>(data);
+        ext_session_lock_surface_v1_ack_configure(surface, serial);
+
+        if (width > 0 && height > 0) {
+            self->m_width = width;
+            self->m_height = height;
+        }
+
+        if (!self->m_shm_pool) {
+            self->m_shm_pool = std::make_unique<ShmPool>(AppEngine::instance()->get_shm(), self->m_width, self->m_height);
+        } else {
+            self->m_shm_pool->resize(self->m_width, self->m_height);
+        }
+
+        self->m_configured = true;
+        self->schedule_redraw();
+    }
+};
 
 const struct xdg_surface_listener Window::s_xdg_surface_listener = {
     .configure = [](void* data, struct xdg_surface* surface, uint32_t serial) {
@@ -246,6 +268,7 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
             xkb_state_update_mask(self->m_xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
             self->m_modifiers = 0;
             if (xkb_state_mod_name_is_active(self->m_xkb_state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0) self->m_modifiers |= static_cast<uint32_t>(KeyboardModifier::Shift);
+            if (xkb_state_mod_name_is_active(self->m_xkb_state, XKB_MOD_NAME_CAPS, XKB_STATE_MODS_EFFECTIVE) > 0) self->m_modifiers |= static_cast<uint32_t>(KeyboardModifier::Caps);
             if (xkb_state_mod_name_is_active(self->m_xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0) self->m_modifiers |= static_cast<uint32_t>(KeyboardModifier::Control);
             if (xkb_state_mod_name_is_active(self->m_xkb_state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0) self->m_modifiers |= static_cast<uint32_t>(KeyboardModifier::Alt);
             if (xkb_state_mod_name_is_active(self->m_xkb_state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0) self->m_modifiers |= static_cast<uint32_t>(KeyboardModifier::Super);
@@ -284,6 +307,7 @@ Window::~Window() {
     if (m_xdg_toplevel) xdg_toplevel_destroy(m_xdg_toplevel);
     if (m_xdg_surface) xdg_surface_destroy(m_xdg_surface);
     if (m_layer_surface) zwlr_layer_surface_v1_destroy(m_layer_surface);
+    if (m_session_lock_surface) ext_session_lock_surface_v1_destroy(m_session_lock_surface);
     if (m_surface) wl_surface_destroy(m_surface);
 }
 
@@ -293,6 +317,31 @@ bool Window::init() {
 
     m_surface = wl_compositor_create_surface(engine->get_compositor());
     if (!m_surface) return false;
+
+    if (m_role == WindowRole::SessionLock) {
+        auto* lock = engine->get_session_lock();
+        if (!lock) {
+            std::cerr << "[miqutoolkit] SessionLock window requested without active session lock." << std::endl;
+            return false;
+        }
+
+        m_session_lock_surface = ext_session_lock_v1_get_lock_surface(lock, m_surface, m_output);
+        if (!m_session_lock_surface) {
+            std::cerr << "[miqutoolkit] Failed to create ext_session_lock_surface_v1." << std::endl;
+            return false;
+        }
+
+        ext_session_lock_surface_v1_add_listener(m_session_lock_surface, &s_lock_surface_listener, this);
+
+        if (engine->get_seat() && engine->get_seat_capabilities() != 0) {
+            update_seat_capabilities(engine->get_seat_capabilities());
+        }
+
+        wl_display_roundtrip(engine->get_display());
+
+        engine->register_window(shared_from_this());
+        return true;
+    }
 
     if (m_role == WindowRole::Toplevel) {
         if (!engine->get_xdg_wm_base()) {
@@ -479,6 +528,10 @@ void Window::close() {
     if (m_layer_surface) {
         zwlr_layer_surface_v1_destroy(m_layer_surface);
         m_layer_surface = nullptr;
+    }
+    if (m_session_lock_surface) {
+        ext_session_lock_surface_v1_destroy(m_session_lock_surface);
+        m_session_lock_surface = nullptr;
     }
     if (m_frame_callback) {
         wl_callback_destroy(m_frame_callback);

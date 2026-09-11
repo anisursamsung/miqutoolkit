@@ -14,10 +14,33 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
+#include "ext-idle-notify-v1-client-protocol.h"
+#include "ext-session-lock-v1-client-protocol.h"
 
 namespace miqu {
 
 AppEngine* AppEngine::s_instance = nullptr;
+
+const struct ext_session_lock_v1_listener AppEngine::s_session_lock_listener = {
+    .locked = [](void* data, struct ext_session_lock_v1*) {
+        auto* self = static_cast<AppEngine*>(data);
+        if (self->m_on_locked_cb) {
+            auto cb = std::move(self->m_on_locked_cb);
+            cb(true);
+        }
+    },
+    .finished = [](void* data, struct ext_session_lock_v1* lock) {
+        auto* self = static_cast<AppEngine*>(data);
+        if (self->m_on_locked_cb) {
+            auto cb = std::move(self->m_on_locked_cb);
+            cb(false);
+        }
+        if (self->m_session_lock == lock) {
+            ext_session_lock_v1_destroy(self->m_session_lock);
+            self->m_session_lock = nullptr;
+        }
+    }
+};
 
 const struct xdg_wm_base_listener AppEngine::s_wm_base_listener = {
     .ping = [](void*, struct xdg_wm_base* wm_base, uint32_t serial) {
@@ -63,6 +86,11 @@ AppEngine::~AppEngine() {
         m_wakeup_fd = -1;
     }
 
+    if (m_session_lock) {
+        unlock_session();
+    }
+    if (m_session_lock_manager) ext_session_lock_manager_v1_destroy(m_session_lock_manager);
+    if (m_idle_notifier) ext_idle_notifier_v1_destroy(m_idle_notifier);
     if (m_ext_workspace_manager) ext_workspace_manager_v1_destroy(m_ext_workspace_manager);
     if (m_foreign_toplevel_manager) zwlr_foreign_toplevel_manager_v1_destroy(m_foreign_toplevel_manager);
     if (m_xdg_wm_base) xdg_wm_base_destroy(m_xdg_wm_base);
@@ -137,6 +165,12 @@ void AppEngine::registry_global(void* data, struct wl_registry* registry, uint32
         self->m_seat = static_cast<struct wl_seat*>(
             wl_registry_bind(registry, name, &wl_seat_interface, std::min(version, 7u)));
         wl_seat_add_listener(self->m_seat, &s_seat_listener, self);
+    } else if (std::strcmp(interface, ext_idle_notifier_v1_interface.name) == 0) {
+        self->m_idle_notifier = static_cast<struct ext_idle_notifier_v1*>(
+            wl_registry_bind(registry, name, &ext_idle_notifier_v1_interface, 1));
+    } else if (std::strcmp(interface, ext_session_lock_manager_v1_interface.name) == 0) {
+        self->m_session_lock_manager = static_cast<struct ext_session_lock_manager_v1*>(
+            wl_registry_bind(registry, name, &ext_session_lock_manager_v1_interface, 1));
     } else if (std::strcmp(interface, wl_output_interface.name) == 0) {
         OutputManager::get()->handle_global(registry, name, interface, version);
     }
@@ -243,6 +277,38 @@ int AppEngine::enter_loop() {
         }
     }
     return m_exit_code;
+}
+
+bool AppEngine::lock_session(std::function<void(bool success)> on_locked) {
+    if (!m_session_lock_manager) {
+        std::cerr << "[miqutoolkit] Compositor does not support ext-session-lock-v1" << std::endl;
+        return false;
+    }
+    if (m_session_lock) {
+        if (on_locked) on_locked(true);
+        return true;
+    }
+
+    m_on_locked_cb = std::move(on_locked);
+    m_session_lock = ext_session_lock_manager_v1_lock(m_session_lock_manager);
+    if (!m_session_lock) {
+        std::cerr << "[miqutoolkit] Failed to create ext_session_lock_v1" << std::endl;
+        return false;
+    }
+
+    ext_session_lock_v1_add_listener(m_session_lock, &s_session_lock_listener, this);
+    wl_display_flush(m_display);
+    return true;
+}
+
+void AppEngine::unlock_session() {
+    if (m_session_lock) {
+        ext_session_lock_v1_unlock_and_destroy(m_session_lock);
+        m_session_lock = nullptr;
+        if (m_display) {
+            wl_display_roundtrip(m_display);
+        }
+    }
 }
 
 void AppEngine::quit(int exit_code) {

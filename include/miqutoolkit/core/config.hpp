@@ -3,6 +3,7 @@
 #include "miqutoolkit/core/color.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace miqu {
 
@@ -36,6 +37,13 @@ public:
     bool load_from_file(const std::string& path);
     void set_colors(const Colors& new_colors) { colors = new_colors; }
     void set_metrics(const Metrics& new_metrics) { metrics = new_metrics; }
+
+    static std::string ensure_user_config(
+        const std::string& app_name,
+        const std::string& main_file = "",
+        const std::vector<std::string>& additional_files = {}
+    );
 };
 
 } // namespace miqu
+

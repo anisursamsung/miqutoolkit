@@ -73,6 +73,32 @@ add_custom_command(
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-workspace-v1.xml
 )
 
+# Generate ext-idle-notify protocol
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
+    COMMAND ${WAYLAND_SCANNER} client-header ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-idle-notify-v1.xml ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-idle-notify-v1.xml
+)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.c
+    COMMAND ${WAYLAND_SCANNER} private-code ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-idle-notify-v1.xml ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.c
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-idle-notify-v1.xml
+)
+
+# Generate ext-session-lock protocol
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.h
+    COMMAND ${WAYLAND_SCANNER} client-header ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml
+)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.c
+    COMMAND ${WAYLAND_SCANNER} private-code ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.c
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml
+)
+
 # Shared Library
 add_library(miqutoolkit SHARED
     src/core/app_engine.cpp
@@ -94,10 +120,12 @@ add_library(miqutoolkit SHARED
     src/view/circle_image_view.cpp
     src/view/image_button.cpp
     src/view/tile_view.cpp
+    src/view/resizable_container.cpp
     src/system/window_manager.cpp
     src/system/workspace_manager.cpp
     src/system/output_manager.cpp
     src/system/app_manager.cpp
+    src/system/idle_manager.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
     ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.c
     ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-client-protocol.h
@@ -106,6 +134,10 @@ add_library(miqutoolkit SHARED
     ${CMAKE_CURRENT_BINARY_DIR}/wlr-foreign-toplevel-management-unstable-v1-client-protocol.c
     ${CMAKE_CURRENT_BINARY_DIR}/ext-workspace-v1-client-protocol.h
     ${CMAKE_CURRENT_BINARY_DIR}/ext-workspace-v1-client-protocol.c
+    ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
+    ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.c
+    ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.h
+    ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.c
 )
 
 set_target_properties(miqutoolkit PROPERTIES

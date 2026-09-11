@@ -26,10 +26,12 @@
 #include "miqutoolkit/view/seek_bar.hpp"
 #include "miqutoolkit/view/circle_image_view.hpp"
 #include "miqutoolkit/view/image_button.hpp"
+#include "miqutoolkit/view/resizable_container.hpp"
 
 // System Services
 #include "miqutoolkit/system/window_manager.hpp"
 #include "miqutoolkit/system/workspace_manager.hpp"
 #include "miqutoolkit/system/output_manager.hpp"
+#include "miqutoolkit/system/idle_manager.hpp"
 
 namespace miqutoolkit = miqu;

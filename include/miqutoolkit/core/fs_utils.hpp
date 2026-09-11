@@ -41,6 +41,30 @@ public:
         std::error_code ec;
         return fs::is_regular_file(expanded, ec);
     }
+
+    static std::string get_user_config_dir(const std::string& app_name = "") {
+        const char* xdg_config = std::getenv("XDG_CONFIG_HOME");
+        std::string base;
+        if (xdg_config && *xdg_config) {
+            base = xdg_config;
+        } else {
+            const char* home = std::getenv("HOME");
+            if (home && *home) {
+                base = std::string(home) + "/.config";
+            }
+        }
+        if (base.empty()) return "";
+        if (!app_name.empty()) {
+            return base + "/" + app_name;
+        }
+        return base;
+    }
+
+    static std::string ensure_user_config(
+        const std::string& app_name,
+        const std::string& main_file = "",
+        const std::vector<std::string>& additional_files = {}
+    );
 };
 
 } // namespace miqu

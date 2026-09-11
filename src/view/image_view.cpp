@@ -554,7 +554,17 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
     int req_h = box_h;
     gboolean preserve_aspect = TRUE;
 
-    if (fit_mode == FitMode::Center) {
+    if (fit_mode == FitMode::Tile) {
+        int orig_w = 0, orig_h = 0;
+        if (gdk_pixbuf_get_file_info(file_to_decode.c_str(), &orig_w, &orig_h) && orig_w > 0 && orig_h > 0) {
+            req_w = orig_w;
+            req_h = orig_h;
+        } else {
+            req_w = box_w;
+            req_h = box_h;
+        }
+        preserve_aspect = TRUE;
+    } else if (fit_mode == FitMode::Center) {
         req_w = (target_size > 0) ? target_size : box_w;
         req_h = (target_size > 0) ? target_size : box_h;
         preserve_aspect = TRUE;
@@ -646,37 +656,47 @@ void ImageView::draw(cairo_t* cr, const Rect& bounds) {
         cairo_translate(cr, -cx, -cy);
     }
 
+    // Optional background fill color
+    if (m_bg_color.a > 0.0f) {
+        cairo_save(cr);
+        cairo_set_source_rgba(cr, m_bg_color.r, m_bg_color.g, m_bg_color.b, m_bg_color.a);
+        cairo_paint(cr);
+        cairo_restore(cr);
+    }
+
     cairo_surface_t* surf = load_surface(m_source, draw_w, draw_h, m_fit_mode, m_target_size, m_quality);
     if (!surf) {
-        auto config = Config::get();
-        // Subtle themed placeholder card
-        if (m_circle) {
-            cairo_arc(cr, cx, cy, radius, 0, 2.0 * M_PI);
-        } else {
-            CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius > 0 ? m_corner_radius : 6.0);
-        }
-        cairo_set_source_rgba(cr, config->colors.surface_variant.r,
-                                  config->colors.surface_variant.g,
-                                  config->colors.surface_variant.b,
-                                  0.45f);
-        cairo_fill(cr);
-
-        // Minimalist photo icon outline in center
-        int icon_sz = std::min(draw_w, draw_h) / 3;
-        if (icon_sz >= 14) {
-            double icx = draw_x + (draw_w - icon_sz) / 2.0;
-            double icy = draw_y + (draw_h - icon_sz) / 2.0;
-            CardView::draw_rounded_rect(cr, icx, icy, icon_sz, icon_sz * 0.75, 3.0);
-            cairo_set_source_rgba(cr, config->colors.on_surface_variant.r,
-                                      config->colors.on_surface_variant.g,
-                                      config->colors.on_surface_variant.b,
-                                      0.35f);
-            cairo_set_line_width(cr, 1.5);
-            cairo_stroke(cr);
-
-            // Small circle inside
-            cairo_arc(cr, icx + icon_sz * 0.3, icy + icon_sz * 0.25, icon_sz * 0.1, 0, 2 * M_PI);
+        if (!m_source.empty()) {
+            auto config = Config::get();
+            // Subtle themed placeholder card
+            if (m_circle) {
+                cairo_arc(cr, cx, cy, radius, 0, 2.0 * M_PI);
+            } else {
+                CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, m_corner_radius > 0 ? m_corner_radius : 6.0);
+            }
+            cairo_set_source_rgba(cr, config->colors.surface_variant.r,
+                                      config->colors.surface_variant.g,
+                                      config->colors.surface_variant.b,
+                                      0.45f);
             cairo_fill(cr);
+
+            // Minimalist photo icon outline in center
+            int icon_sz = std::min(draw_w, draw_h) / 3;
+            if (icon_sz >= 14) {
+                double icx = draw_x + (draw_w - icon_sz) / 2.0;
+                double icy = draw_y + (draw_h - icon_sz) / 2.0;
+                CardView::draw_rounded_rect(cr, icx, icy, icon_sz, icon_sz * 0.75, 3.0);
+                cairo_set_source_rgba(cr, config->colors.on_surface_variant.r,
+                                          config->colors.on_surface_variant.g,
+                                          config->colors.on_surface_variant.b,
+                                          0.35f);
+                cairo_set_line_width(cr, 1.5);
+                cairo_stroke(cr);
+
+                // Small circle inside
+                cairo_arc(cr, icx + icon_sz * 0.3, icy + icon_sz * 0.25, icon_sz * 0.1, 0, 2 * M_PI);
+                cairo_fill(cr);
+            }
         }
         cairo_restore(cr);
 
@@ -705,17 +725,29 @@ void ImageView::draw(cairo_t* cr, const Rect& bounds) {
         return;
     }
 
-    int surf_w = cairo_image_surface_get_width(surf);
-    int surf_h = cairo_image_surface_get_height(surf);
-
-    double img_x = draw_x + (draw_w - surf_w) / 2.0;
-    double img_y = draw_y + (draw_h - surf_h) / 2.0;
-
-    cairo_set_source_surface(cr, surf, img_x, img_y);
-    if (m_opacity < 1.0f) {
-        cairo_paint_with_alpha(cr, m_opacity);
+    if (m_fit_mode == FitMode::Tile) {
+        cairo_pattern_t* pat = cairo_pattern_create_for_surface(surf);
+        cairo_pattern_set_extend(pat, CAIRO_EXTEND_REPEAT);
+        cairo_set_source(cr, pat);
+        if (m_opacity < 1.0f) {
+            cairo_paint_with_alpha(cr, m_opacity);
+        } else {
+            cairo_paint(cr);
+        }
+        cairo_pattern_destroy(pat);
     } else {
-        cairo_paint(cr);
+        int surf_w = cairo_image_surface_get_width(surf);
+        int surf_h = cairo_image_surface_get_height(surf);
+
+        double img_x = draw_x + (draw_w - surf_w) / 2.0;
+        double img_y = draw_y + (draw_h - surf_h) / 2.0;
+
+        cairo_set_source_surface(cr, surf, img_x, img_y);
+        if (m_opacity < 1.0f) {
+            cairo_paint_with_alpha(cr, m_opacity);
+        } else {
+            cairo_paint(cr);
+        }
     }
     cairo_restore(cr);
 
