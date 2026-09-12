@@ -26,6 +26,7 @@
 #include "miqutoolkit/view/seek_bar.hpp"
 #include "miqutoolkit/view/circle_image_view.hpp"
 #include "miqutoolkit/view/image_button.hpp"
+#include "miqutoolkit/view/tile_view.hpp"
 #include "miqutoolkit/view/resizable_container.hpp"
 
 // System Services

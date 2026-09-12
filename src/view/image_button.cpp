@@ -16,7 +16,7 @@ Size ImageButton::measure_size() const {
     int pad_h = m_padding.left + m_padding.right > 0 ? (m_padding.left + m_padding.right) : 16;
     int pad_v = m_padding.top + m_padding.bottom > 0 ? (m_padding.top + m_padding.bottom) : 16;
     int s = std::max(m_icon_size + pad_h, m_icon_size + pad_v);
-    return Size(s + m_margin.left + m_margin.right, s + m_margin.top + m_margin.bottom);
+    return Size(s, s);
 }
 
 void ImageButton::draw(cairo_t* cr, const Rect& bounds) {
@@ -24,10 +24,10 @@ void ImageButton::draw(cairo_t* cr, const Rect& bounds) {
 
     auto config = Config::get();
 
-    int draw_x = bounds.x + m_margin.left;
-    int draw_y = bounds.y + m_margin.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+    int draw_x = bounds.x;
+    int draw_y = bounds.y;
+    int draw_w = bounds.width;
+    int draw_h = bounds.height;
 
     if (draw_w <= 0 || draw_h <= 0) return;
 

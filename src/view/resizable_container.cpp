@@ -27,12 +27,7 @@ bool ResizableContainer::is_in_resize_grip(int lx, int ly, const Rect& bounds) c
 void ResizableContainer::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    Rect content_bounds(
-        bounds.x + m_margin.left + m_padding.left,
-        bounds.y + m_margin.top + m_padding.top,
-        std::max(0, bounds.width - m_margin.left - m_margin.right - m_padding.left - m_padding.right),
-        std::max(0, bounds.height - m_margin.top - m_margin.bottom - m_padding.top - m_padding.bottom)
-    );
+    Rect content_bounds = get_content_rect(bounds);
 
     if (has_background()) {
         draw_background(cr, content_bounds);
@@ -77,12 +72,7 @@ void ResizableContainer::draw(cairo_t* cr, const Rect& bounds) {
 
 bool ResizableContainer::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (m_content && m_content->is_visible()) {
-        Rect content_bounds(
-            bounds.x + m_margin.left + m_padding.left,
-            bounds.y + m_margin.top + m_padding.top,
-            std::max(0, bounds.width - m_margin.left - m_margin.right - m_padding.left - m_padding.right),
-            std::max(0, bounds.height - m_margin.top - m_margin.bottom - m_padding.top - m_padding.bottom)
-        );
+        Rect content_bounds = get_content_rect(bounds);
         return m_content->on_mouse_button(lx, ly, button, pressed, content_bounds);
     }
     return false;
@@ -92,12 +82,7 @@ bool ResizableContainer::on_mouse_move(int lx, int ly, const Rect& bounds) {
     m_hover_resize = is_in_resize_grip(lx, ly, bounds);
 
     if (m_content && m_content->is_visible()) {
-        Rect content_bounds(
-            bounds.x + m_margin.left + m_padding.left,
-            bounds.y + m_margin.top + m_padding.top,
-            std::max(0, bounds.width - m_margin.left - m_margin.right - m_padding.left - m_padding.right),
-            std::max(0, bounds.height - m_margin.top - m_margin.bottom - m_padding.top - m_padding.bottom)
-        );
+        Rect content_bounds = get_content_rect(bounds);
         return m_content->on_mouse_move(lx, ly, content_bounds);
     }
     return false;

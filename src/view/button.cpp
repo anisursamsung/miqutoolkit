@@ -1,6 +1,8 @@
 #include "miqutoolkit/view/button.hpp"
 #include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/core/config.hpp"
+#include "miqutoolkit/core/window.hpp"
 #include <pango/pangocairo.h>
 #include <iostream>
 
@@ -33,12 +35,12 @@ Size Button::measure_size() const {
     cairo_destroy(cr);
     cairo_surface_destroy(temp_surf);
 
-    int icon_space = m_icon.empty() ? 0 : 24;
+    int icon_space = m_icon.empty() ? 0 : (font_size > 0 ? font_size + 12 : 24);
     int pad_h = m_padding.left + m_padding.right > 0 ? (m_padding.left + m_padding.right) : 24;
     int pad_v = m_padding.top + m_padding.bottom > 0 ? (m_padding.top + m_padding.bottom) : 12;
 
-    int total_w = text_w + icon_space + pad_h + m_margin.left + m_margin.right;
-    int total_h = std::max(text_h, 20) + pad_v + m_margin.top + m_margin.bottom;
+    int total_w = text_w + icon_space + pad_h;
+    int total_h = std::max(text_h, 20) + pad_v;
 
     return Size(total_w, total_h);
 }
@@ -48,10 +50,10 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
 
     auto config = Config::get();
 
-    int draw_x = bounds.x + m_margin.left;
-    int draw_y = bounds.y + m_margin.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+    int draw_x = bounds.x;
+    int draw_y = bounds.y;
+    int draw_w = bounds.width;
+    int draw_h = bounds.height;
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
@@ -91,40 +93,60 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
         cairo_stroke(cr);
     }
 
-    // Text Label
+    int pad_l = m_padding.left > 0 ? m_padding.left : 12;
+    int pad_r = m_padding.right > 0 ? m_padding.right : 12;
+    int avail_content_w = std::max(0, draw_w - pad_l - pad_r);
+
+    int font_size = m_font_size > 0 ? m_font_size : config->metrics.font_size;
+    if (font_size <= 0) font_size = 11;
+    int icon_size = font_size + 4;
+    int icon_w = m_icon.empty() ? 0 : icon_size;
+    int gap = (!m_icon.empty() && !m_text.empty()) ? 8 : 0;
+
+    PangoLayout* text_layout = nullptr;
+    int text_w = 0, text_h = 0;
     if (!m_text.empty()) {
-        PangoLayout* layout = pango_cairo_create_layout(cr);
-        pango_layout_set_text(layout, m_text.c_str(), -1);
+        text_layout = pango_cairo_create_layout(cr);
+        pango_layout_set_text(text_layout, m_text.c_str(), -1);
 
         std::string font_family = !m_font_family.empty() ? m_font_family : config->metrics.font_family;
         if (font_family.empty()) font_family = "Sans";
-        int font_size = m_font_size > 0 ? m_font_size : config->metrics.font_size;
-        if (font_size <= 0) font_size = 11;
 
         std::string font_desc_str = font_family + " " + std::to_string(font_size);
         if (m_font_bold) font_desc_str += " Bold";
 
         PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
-        pango_layout_set_font_description(layout, desc);
+        pango_layout_set_font_description(text_layout, desc);
         pango_font_description_free(desc);
 
-        int pad_l = m_padding.left > 0 ? m_padding.left : 12;
-        int pad_r = m_padding.right > 0 ? m_padding.right : 12;
+        int max_text_w = std::max(0, avail_content_w - icon_w - gap);
+        pango_layout_set_width(text_layout, max_text_w * PANGO_SCALE);
+        pango_layout_set_ellipsize(text_layout, PANGO_ELLIPSIZE_END);
 
-        pango_layout_set_alignment(layout, PANGO_ALIGN_CENTER);
-        pango_layout_set_width(layout, std::max(0, draw_w - pad_l - pad_r) * PANGO_SCALE);
-        pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
+        pango_layout_get_pixel_size(text_layout, &text_w, &text_h);
+    }
 
-        int text_w = 0, text_h = 0;
-        pango_layout_get_pixel_size(layout, &text_w, &text_h);
+    int total_content_w = icon_w + gap + text_w;
+    int content_start_x = draw_x + pad_l + std::max(0, (avail_content_w - total_content_w) / 2);
 
+    if (!m_icon.empty()) {
+        int icon_x = content_start_x;
+        int icon_y = draw_y + (draw_h - icon_size) / 2;
+        Rect icon_rect(icon_x, icon_y, icon_size, icon_size);
+
+        ImageView img(m_icon);
+        img.set_target_size(icon_size);
+        img.draw(cr, icon_rect);
+
+        content_start_x += icon_w + gap;
+    }
+
+    if (text_layout) {
         double label_y = draw_y + (draw_h - text_h) / 2.0;
-
-        cairo_move_to(cr, draw_x + pad_l, label_y);
+        cairo_move_to(cr, content_start_x, label_y);
         cairo_set_source_rgba(cr, fg_color.r, fg_color.g, fg_color.b, fg_color.a);
-        pango_cairo_show_layout(cr, layout);
-
-        g_object_unref(layout);
+        pango_cairo_show_layout(cr, text_layout);
+        g_object_unref(text_layout);
     }
 
     cairo_restore(cr);
@@ -134,6 +156,7 @@ bool Button::on_mouse_move(int lx, int ly, const Rect& bounds) {
     bool hovered = bounds.contains(Point(lx, ly));
     if (hovered != m_hovered) {
         m_hovered = hovered;
+        if (m_window) m_window->schedule_redraw();
         return true;
     }
     return false;
@@ -146,11 +169,13 @@ bool Button::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, c
     if (pressed) {
         if (contains) {
             m_pressed = true;
+            if (m_window) m_window->schedule_redraw();
             return true;
         }
     } else {
         if (m_pressed) {
             m_pressed = false;
+            if (m_window) m_window->schedule_redraw();
             if (contains && m_on_click) {
                 m_on_click();
             }

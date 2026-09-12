@@ -66,8 +66,8 @@ void SearchView::set_on_query_text_listener(std::function<void(const std::string
 }
 
 Size SearchView::measure_size() const {
-    int pad_h = m_padding.left + m_padding.right + m_margin.left + m_margin.right;
-    int pad_v = m_padding.top + m_padding.bottom + m_margin.top + m_margin.bottom;
+    int pad_h = m_padding.left + m_padding.right;
+    int pad_v = m_padding.top + m_padding.bottom;
     return Size(m_bounds.width > 0 ? m_bounds.width : 200 + pad_h, 24 + pad_v);
 }
 
@@ -77,11 +77,11 @@ void SearchView::draw(cairo_t* cr, const Rect& bounds) {
     auto config = Config::get();
     m_child_entries.clear();
 
-    // 1. Calculate Outer Margin and Content Bounds
-    int draw_x = bounds.x + m_margin.left;
-    int draw_y = bounds.y + m_margin.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+    // 1. Calculate Content Bounds
+    int draw_x = bounds.x;
+    int draw_y = bounds.y;
+    int draw_w = bounds.width;
+    int draw_h = bounds.height;
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
@@ -179,10 +179,10 @@ bool SearchView::on_key(const KeyPressEvent& event) {
 bool SearchView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (!is_visible()) return false;
 
-    int draw_x = bounds.x + m_margin.left;
-    int draw_y = bounds.y + m_margin.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+    int draw_x = bounds.x;
+    int draw_y = bounds.y;
+    int draw_w = bounds.width;
+    int draw_h = bounds.height;
     Rect pill_rect(draw_x, draw_y, draw_w, draw_h);
 
     if (button == MouseButton::Left && pressed) {

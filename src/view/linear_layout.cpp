@@ -35,8 +35,8 @@ Size LinearLayout::measure_size() const {
         }
     }
 
-    total_w += m_padding.left + m_padding.right + m_margin.left + m_margin.right;
-    total_h += m_padding.top + m_padding.bottom + m_margin.top + m_margin.bottom;
+    total_w += m_padding.left + m_padding.right;
+    total_h += m_padding.top + m_padding.bottom;
 
     return Size(total_w, total_h);
 }
@@ -56,10 +56,10 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
     m_child_entries.clear();
 
     Rect content_rect = get_content_rect(bounds);
-    int avail_w = std::max(0, content_rect.width - m_margin.left - m_margin.right);
-    int avail_h = std::max(0, content_rect.height - m_margin.top - m_margin.bottom);
-    int origin_x = content_rect.x + m_margin.left;
-    int origin_y = content_rect.y + m_margin.top;
+    int avail_w = content_rect.width;
+    int avail_h = content_rect.height;
+    int origin_x = content_rect.x;
+    int origin_y = content_rect.y;
 
     if (avail_w <= 0 || avail_h <= 0) return;
 

@@ -624,10 +624,10 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
 void ImageView::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
-    int draw_x = bounds.x + m_margin.left + m_padding.left;
-    int draw_y = bounds.y + m_margin.top + m_padding.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right - m_padding.left - m_padding.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom - m_padding.top - m_padding.bottom);
+    int draw_x = bounds.x + m_padding.left;
+    int draw_y = bounds.y + m_padding.top;
+    int draw_w = std::max(0, bounds.width - m_padding.left - m_padding.right);
+    int draw_h = std::max(0, bounds.height - m_padding.top - m_padding.bottom);
     if (draw_w <= 0 || draw_h <= 0) return;
 
     double cx = draw_x + draw_w / 2.0;

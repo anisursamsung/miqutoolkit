@@ -7,8 +7,8 @@
 namespace miqu {
 
 Size SeekBar::measure_size() const {
-    int w = 120 + m_margin.left + m_margin.right;
-    int h = std::max(m_track_height, m_thumb_radius * 2) + 12 + m_margin.top + m_margin.bottom;
+    int w = 120 + m_padding.left + m_padding.right;
+    int h = std::max(m_track_height, m_thumb_radius * 2) + 12 + m_padding.top + m_padding.bottom;
     return Size(w, h);
 }
 
@@ -17,10 +17,10 @@ void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
 
     auto config = Config::get();
 
-    int draw_x = bounds.x + m_margin.left;
-    int draw_y = bounds.y + m_margin.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+    int draw_x = bounds.x;
+    int draw_y = bounds.y;
+    int draw_w = bounds.width;
+    int draw_h = bounds.height;
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
@@ -77,8 +77,8 @@ void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
 bool SeekBar::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (button != MouseButton::Left) return false;
 
-    int draw_x = bounds.x + m_margin.left;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
+    int draw_x = bounds.x;
+    int draw_w = bounds.width;
     int thumb_r = m_thumb_radius;
     int usable_w = draw_w - thumb_r * 2;
     if (usable_w < 1) usable_w = 1;
@@ -110,8 +110,8 @@ bool SeekBar::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, 
 }
 
 bool SeekBar::on_mouse_move(int lx, int ly, const Rect& bounds) {
-    int draw_x = bounds.x + m_margin.left;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
+    int draw_x = bounds.x;
+    int draw_w = bounds.width;
     int thumb_r = m_thumb_radius;
     int usable_w = draw_w - thumb_r * 2;
     if (usable_w < 1) usable_w = 1;

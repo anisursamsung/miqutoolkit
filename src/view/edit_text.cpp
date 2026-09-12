@@ -1,6 +1,7 @@
 #include "miqutoolkit/view/edit_text.hpp"
 #include "miqutoolkit/view/card_view.hpp"
 #include "miqutoolkit/core/config.hpp"
+#include "miqutoolkit/core/window.hpp"
 #include <pango/pangocairo.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
@@ -28,10 +29,10 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
 
     auto config = Config::get();
 
-    int draw_x = bounds.x + m_margin.left;
-    int draw_y = bounds.y + m_margin.top;
-    int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-    int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+    int draw_x = bounds.x;
+    int draw_y = bounds.y;
+    int draw_w = bounds.width;
+    int draw_h = bounds.height;
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
@@ -238,10 +239,10 @@ bool EditText::on_key(const KeyPressEvent& event) {
 
 bool EditText::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (button == MouseButton::Left && pressed) {
-        int draw_x = bounds.x + m_margin.left;
-        int draw_y = bounds.y + m_margin.top;
-        int draw_w = std::max(0, bounds.width - m_margin.left - m_margin.right);
-        int draw_h = std::max(0, bounds.height - m_margin.top - m_margin.bottom);
+        int draw_x = bounds.x;
+        int draw_y = bounds.y;
+        int draw_w = bounds.width;
+        int draw_h = bounds.height;
         Rect pill_rect(draw_x, draw_y, draw_w, draw_h);
 
         if (pill_rect.contains(lx, ly)) {
@@ -256,7 +257,12 @@ bool EditText::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
                 cairo_t* cr = cairo_create(temp_surf);
                 PangoLayout* layout = pango_cairo_create_layout(cr);
                 pango_layout_set_text(layout, m_text.c_str(), -1);
-                PangoFontDescription* desc = pango_font_description_from_string("Sans 12");
+
+                auto config = Config::get();
+                std::string font_family = !config->metrics.font_family.empty() ? config->metrics.font_family : "Sans";
+                int font_size = config->metrics.font_size > 0 ? config->metrics.font_size : 11;
+                std::string font_desc_str = font_family + " " + std::to_string(font_size);
+                PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
                 pango_layout_set_font_description(layout, desc);
                 pango_font_description_free(desc);
 
@@ -269,9 +275,11 @@ bool EditText::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
                 cairo_destroy(cr);
                 cairo_surface_destroy(temp_surf);
             }
+            if (m_window) m_window->schedule_redraw();
             return true;
         } else if (m_focused) {
             m_focused = false;
+            if (m_window) m_window->schedule_redraw();
             return true;
         }
     }
