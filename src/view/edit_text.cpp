@@ -38,15 +38,16 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
 
     cairo_save(cr);
 
-    double radius = static_cast<double>(config->metrics.corner_radius > 0 ? config->metrics.corner_radius : 8);
+    double radius = static_cast<double>(config->metrics.corner_radius > 0 ? config->metrics.corner_radius : 12);
 
     if (m_draw_background) {
         // Background input pill / card
         CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
-        cairo_set_source_rgba(cr, config->colors.surface_variant.r,
-                                  config->colors.surface_variant.g,
-                                  config->colors.surface_variant.b,
-                                  config->colors.surface_variant.a);
+        Color bg_col = m_has_custom_bg_color ? m_bg_color : config->colors.surface_variant;
+        cairo_set_source_rgba(cr, bg_col.r,
+                                  bg_col.g,
+                                  bg_col.b,
+                                  bg_col.a);
         cairo_fill(cr);
 
         // Focused outline
@@ -107,15 +108,29 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
     cairo_move_to(cr, text_draw_x, text_draw_y);
 
     if (is_hint) {
-        cairo_set_source_rgba(cr, config->colors.on_surface_variant.r,
-                                  config->colors.on_surface_variant.g,
-                                  config->colors.on_surface_variant.b,
-                                  0.6f);
+        if (m_has_custom_hint_color) {
+            cairo_set_source_rgba(cr, m_hint_color.r,
+                                      m_hint_color.g,
+                                      m_hint_color.b,
+                                      m_hint_color.a);
+        } else {
+            cairo_set_source_rgba(cr, config->colors.on_surface_variant.r,
+                                      config->colors.on_surface_variant.g,
+                                      config->colors.on_surface_variant.b,
+                                      0.6f);
+        }
     } else {
-        cairo_set_source_rgba(cr, config->colors.on_surface.r,
-                                  config->colors.on_surface.g,
-                                  config->colors.on_surface.b,
-                                  config->colors.on_surface.a);
+        if (m_has_custom_text_color) {
+            cairo_set_source_rgba(cr, m_text_color.r,
+                                      m_text_color.g,
+                                      m_text_color.b,
+                                      m_text_color.a);
+        } else {
+            cairo_set_source_rgba(cr, config->colors.on_surface.r,
+                                      config->colors.on_surface.g,
+                                      config->colors.on_surface.b,
+                                      config->colors.on_surface.a);
+        }
     }
 
     pango_cairo_show_layout(cr, layout);

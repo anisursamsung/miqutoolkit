@@ -33,6 +33,14 @@ public:
     void set_draw_background(bool draw) { m_draw_background = draw; }
     bool is_draw_background() const { return m_draw_background; }
 
+    void set_text_color(const Color& col) { m_text_color = col; m_has_custom_text_color = true; }
+    void set_hint_color(const Color& col) { m_hint_color = col; m_has_custom_hint_color = true; }
+    void set_background_color(const Color& col) { m_bg_color = col; m_has_custom_bg_color = true; }
+
+    const Color& get_text_color() const { return m_text_color; }
+    const Color& get_hint_color() const { return m_hint_color; }
+    const Color& get_background_color() const { return m_bg_color; }
+
     void clear();
 
     void draw(cairo_t* cr, const Rect& bounds) override;
@@ -48,6 +56,13 @@ private:
     bool m_focused = true;
     bool m_draw_background = true;
     bool m_password_mode = false;
+
+    Color m_text_color;
+    Color m_hint_color;
+    Color m_bg_color;
+    bool m_has_custom_text_color = false;
+    bool m_has_custom_hint_color = false;
+    bool m_has_custom_bg_color = false;
 
     std::function<void(std::shared_ptr<EditText>, const std::string&)> m_on_text_changed;
     std::function<void(const std::string&)> m_on_submit;
@@ -68,6 +83,21 @@ public:
 
     std::shared_ptr<EditTextBuilder> text(std::string t) {
         m_view->set_text(std::move(t));
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> textColor(const Color& col) {
+        m_view->set_text_color(col);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> hintColor(const Color& col) {
+        m_view->set_hint_color(col);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<EditTextBuilder> backgroundColor(const Color& col) {
+        m_view->set_background_color(col);
         return shared_from_this();
     }
 

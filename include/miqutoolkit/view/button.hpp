@@ -6,6 +6,13 @@
 
 namespace miqu {
 
+enum class ButtonStyle {
+    Standard, // Surface-variant container with subtle outline
+    Primary,  // Accent primary background with on-primary text
+    Outlined, // Transparent background with outline border
+    Flat      // Borderless, transparent until hovered
+};
+
 class Button : public View {
 public:
     Button() = default;
@@ -20,6 +27,12 @@ public:
     void set_text_size(int size) { m_font_size = size; }
     void set_bold(bool bold) { m_font_bold = bold; }
     void set_radius(int radius) { m_corner_radius = radius; }
+
+    void set_style(ButtonStyle style) { m_style = style; }
+    ButtonStyle get_style() const { return m_style; }
+    void set_primary(bool primary = true) { m_style = primary ? ButtonStyle::Primary : ButtonStyle::Standard; }
+    void set_outlined(bool outlined = true) { m_style = outlined ? ButtonStyle::Outlined : ButtonStyle::Standard; }
+    void set_flat(bool flat = true) { m_style = flat ? ButtonStyle::Flat : ButtonStyle::Standard; }
 
     void set_custom_colors(const Color& bg, const Color& fg) {
         m_custom_bg = bg;
@@ -43,6 +56,7 @@ private:
     int m_font_size = -1;
     bool m_font_bold = false;
     int m_corner_radius = -1;
+    ButtonStyle m_style = ButtonStyle::Standard;
 
     bool m_hovered = false;
     bool m_pressed = false;
@@ -88,6 +102,31 @@ public:
 
     std::shared_ptr<ButtonBuilder> cornerRadius(int radius) {
         m_view->set_radius(radius);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ButtonBuilder> style(ButtonStyle s) {
+        m_view->set_style(s);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ButtonBuilder> primary(bool b = true) {
+        m_view->set_primary(b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ButtonBuilder> outlined(bool b = true) {
+        m_view->set_outlined(b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ButtonBuilder> flat(bool b = true) {
+        m_view->set_flat(b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ButtonBuilder> customColors(const Color& bg, const Color& fg) {
+        m_view->set_custom_colors(bg, fg);
         return shared_from_this();
     }
 

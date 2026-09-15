@@ -1,12 +1,18 @@
 #include "miqutoolkit/core/app_engine.hpp"
 #include "miqutoolkit/core/window.hpp"
+#include "miqutoolkit/core/config.hpp"
+#include "miqutoolkit/core/fs_utils.hpp"
 #include "miqutoolkit/system/window_manager.hpp"
 #include "miqutoolkit/system/workspace_manager.hpp"
 #include "miqutoolkit/system/output_manager.hpp"
+#include "miqutoolkit/system/idle_manager.hpp"
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <map>
+#include <filesystem>
 #include <sys/eventfd.h>
+#include <sys/inotify.h>
 #include <poll.h>
 #include <unistd.h>
 #include <errno.h>
@@ -86,9 +92,23 @@ AppEngine::~AppEngine() {
         m_wakeup_fd = -1;
     }
 
+    for (const auto& [wd, fname] : m_inotify_watches) {
+        if (wd >= 0 && m_inotify_fd >= 0) {
+            inotify_rm_watch(m_inotify_fd, wd);
+        }
+    }
+    m_inotify_watches.clear();
+
+    if (m_inotify_fd >= 0) {
+        close(m_inotify_fd);
+        m_inotify_fd = -1;
+    }
+
     if (m_session_lock) {
         unlock_session();
     }
+    IdleManager::get()->clear_listeners();
+    OutputManager::get()->clear();
     if (m_session_lock_manager) ext_session_lock_manager_v1_destroy(m_session_lock_manager);
     if (m_idle_notifier) ext_idle_notifier_v1_destroy(m_idle_notifier);
     if (m_ext_workspace_manager) ext_workspace_manager_v1_destroy(m_ext_workspace_manager);
@@ -133,6 +153,8 @@ bool AppEngine::init() {
     }
 
     wl_display_roundtrip(m_display);
+
+    setup_config_watcher();
 
     return true;
 }
@@ -228,7 +250,7 @@ int AppEngine::enter_loop() {
         }
         wl_display_flush(m_display);
 
-        struct pollfd pfd[2];
+        struct pollfd pfd[3];
         pfd[0].fd = display_fd;
         pfd[0].events = POLLIN;
         pfd[0].revents = 0;
@@ -237,7 +259,14 @@ int AppEngine::enter_loop() {
         pfd[1].events = POLLIN;
         pfd[1].revents = 0;
 
-        int nfds = (m_wakeup_fd >= 0) ? 2 : 1;
+        pfd[2].fd = m_inotify_fd;
+        pfd[2].events = POLLIN;
+        pfd[2].revents = 0;
+
+        int nfds = 1;
+        if (m_wakeup_fd >= 0) nfds = 2;
+        if (m_inotify_fd >= 0) nfds = 3;
+
         int ret = poll(pfd, nfds, -1);
 
         if (ret < 0) {
@@ -274,6 +303,10 @@ int AppEngine::enter_loop() {
             for (auto& t : tasks_to_run) {
                 if (t) t();
             }
+        }
+
+        if (m_inotify_fd >= 0 && (pfd[2].revents & POLLIN)) {
+            handle_inotify_events();
         }
     }
     return m_exit_code;
@@ -318,6 +351,101 @@ void AppEngine::quit(int exit_code) {
         uint64_t val = 1;
         ssize_t s = write(m_wakeup_fd, &val, sizeof(val));
         (void)s;
+    }
+}
+
+void AppEngine::setup_config_watcher() {
+    if (m_inotify_fd < 0) {
+        m_inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+        if (m_inotify_fd < 0) {
+            std::cerr << "[miqutoolkit] Failed to create inotify instance for config watcher: " << strerror(errno) << std::endl;
+            return;
+        }
+    }
+
+    // Clean up existing watches
+    for (const auto& [wd, fname] : m_inotify_watches) {
+        if (wd >= 0) {
+            inotify_rm_watch(m_inotify_fd, wd);
+        }
+    }
+    m_inotify_watches.clear();
+
+    namespace fs = std::filesystem;
+    auto config = Config::get();
+    std::vector<std::string> files_to_watch = config->get_loaded_files();
+
+    std::string user_cfg_dir = FsUtils::get_user_config_dir("miqutoolkit");
+    if (!user_cfg_dir.empty()) {
+        std::string def_file = user_cfg_dir + "/miqutoolkit.conf";
+        if (std::find(files_to_watch.begin(), files_to_watch.end(), def_file) == files_to_watch.end()) {
+            files_to_watch.push_back(def_file);
+        }
+    }
+
+    std::map<std::string, std::vector<std::string>> dir_to_files;
+    for (const auto& fpath : files_to_watch) {
+        fs::path p(fpath);
+        fs::path pdir = p.parent_path();
+        std::string fname = p.filename().string();
+        if (fs::exists(pdir)) {
+            dir_to_files[pdir.string()].push_back(fname);
+            // Also watch grandparent directory for symlink swaps (e.g. current -> scheme)
+            if (pdir.has_parent_path() && fs::exists(pdir.parent_path())) {
+                dir_to_files[pdir.parent_path().string()].push_back(pdir.filename().string());
+            }
+        } else if (pdir.has_parent_path() && fs::exists(pdir.parent_path())) {
+            // If parent doesn't exist yet, watch grandparent for parent directory creation
+            dir_to_files[pdir.parent_path().string()].push_back(pdir.filename().string());
+        }
+    }
+
+    for (const auto& [dir_path, fnames] : dir_to_files) {
+        int wd = inotify_add_watch(m_inotify_fd, dir_path.c_str(), IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE);
+        if (wd >= 0) {
+            for (const auto& fn : fnames) {
+                m_inotify_watches.emplace_back(wd, fn);
+            }
+        }
+    }
+}
+
+void AppEngine::handle_inotify_events() {
+    alignas(struct inotify_event) char buffer[4096];
+    bool should_reload = false;
+
+    while (true) {
+        ssize_t len = read(m_inotify_fd, buffer, sizeof(buffer));
+        if (len <= 0) break;
+
+        for (char* ptr = buffer; ptr < buffer + len; ) {
+            auto* event = reinterpret_cast<const struct inotify_event*>(ptr);
+            if (event->len > 0) {
+                std::string ev_name(event->name);
+                for (const auto& [wd, fname] : m_inotify_watches) {
+                    if (wd == event->wd && fname == ev_name) {
+                        should_reload = true;
+                        break;
+                    }
+                }
+            }
+            ptr += sizeof(struct inotify_event) + event->len;
+        }
+    }
+
+    if (should_reload) {
+        Config::get()->init_toolkit_defaults();
+        setup_config_watcher();
+
+        for (auto& win : m_windows) {
+            if (win) {
+                win->refresh_theme();
+            }
+        }
+
+        for (auto& listener : m_theme_change_listeners) {
+            if (listener) listener();
+        }
     }
 }
 

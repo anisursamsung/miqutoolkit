@@ -5,44 +5,59 @@
 #include <string>
 #include <vector>
 
+#include <functional>
+
 namespace miqu {
 
 class Config {
 public:
     struct Colors {
-        Color background           = Color::rgba(0.957f, 0.973f, 0.988f, 0.96f);
-        Color on_background        = Color::rgba(0.059f, 0.090f, 0.165f, 1.0f);
-        Color surface              = Color::rgba(1.0f, 1.0f, 1.0f, 0.96f);
-        Color on_surface           = Color::rgba(0.059f, 0.090f, 0.165f, 1.0f);
-        Color surface_variant      = Color::rgba(0.902f, 0.937f, 0.973f, 0.96f);
-        Color on_surface_variant  = Color::rgba(0.278f, 0.333f, 0.412f, 1.0f);
-        Color primary              = Color::rgba(0.0f, 0.40f, 1.0f, 1.0f);
-        Color on_primary           = Color::rgba(1.0f, 1.0f, 1.0f, 1.0f);
-        Color primary_container    = Color::rgba(0.80f, 0.898f, 1.0f, 0.50f);
-        Color on_primary_container = Color::rgba(0.0f, 0.169f, 0.40f, 1.0f);
-        Color outline              = Color::rgba(0.60f, 0.761f, 1.0f, 0.80f);
-        Color outline_variant      = Color::rgba(0.859f, 0.918f, 0.996f, 0.60f);
-        Color backdrop             = Color::rgba(0.0f, 0.0f, 0.0f, 0.30f);
+        Color background;
+        Color on_background;
+        Color surface;
+        Color on_surface;
+        Color surface_variant;
+        Color on_surface_variant;
+        Color primary;
+        Color on_primary;
+        Color primary_container;
+        Color on_primary_container;
+        Color outline;
+        Color outline_variant;
+        Color backdrop;
     } colors;
 
     struct Metrics {
         int corner_radius = 12;
         int border_width = 1;
-        std::string icon_theme = "Tela-circle";
+        std::string icon_theme = "hicolor";
         std::string font_family = "Sans";
         int font_size = 11;
+        int h1_size = 20;
+        int h2_size = 15;
+        int h3_size = 13;
+        int caption_size = 10;
     } metrics;
 
     static std::shared_ptr<Config> get();
     bool load_from_file(const std::string& path);
+    void init_toolkit_defaults();
     void set_colors(const Colors& new_colors) { colors = new_colors; }
     void set_metrics(const Metrics& new_metrics) { metrics = new_metrics; }
+
+    const std::vector<std::string>& get_loaded_files() const { return m_loaded_files; }
+    void add_change_listener(std::function<void()> listener) { m_change_listeners.push_back(std::move(listener)); }
+    void notify_changed();
 
     static std::string ensure_user_config(
         const std::string& app_name,
         const std::string& main_file = "",
         const std::vector<std::string>& additional_files = {}
     );
+
+private:
+    std::vector<std::string> m_loaded_files;
+    std::vector<std::function<void()>> m_change_listeners;
 };
 
 } // namespace miqu

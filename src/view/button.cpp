@@ -22,7 +22,8 @@ Size Button::measure_size() const {
     if (font_size <= 0) font_size = 11;
 
     std::string font_desc_str = font_family + " " + std::to_string(font_size);
-    if (m_font_bold) font_desc_str += " Bold";
+    bool is_bold = m_font_bold || (m_style == ButtonStyle::Primary);
+    if (is_bold) font_desc_str += " Bold";
 
     PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
     pango_layout_set_font_description(layout, desc);
@@ -59,6 +60,8 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
 
     Color bg_color = Color::transparent();
     Color fg_color = config->colors.on_surface;
+    Color border_color = Color::transparent();
+    double border_width = 0.0;
 
     if (m_use_custom_colors) {
         bg_color = m_custom_bg;
@@ -66,12 +69,67 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
     } else if (m_selected) {
         bg_color = config->colors.primary_container;
         fg_color = config->colors.on_primary_container;
-    } else if (m_pressed) {
-        bg_color = config->colors.primary.with_alpha(0.35f);
-        fg_color = config->colors.primary;
-    } else if (m_hovered) {
-        bg_color = config->colors.surface_variant.with_alpha(0.6f);
-        fg_color = config->colors.on_surface;
+        border_color = config->colors.primary;
+        border_width = 1.0;
+    } else {
+        switch (m_style) {
+            case ButtonStyle::Primary:
+                if (m_pressed) {
+                    bg_color = config->colors.primary.with_alpha(0.70f);
+                } else if (m_hovered) {
+                    bg_color = config->colors.primary.with_alpha(0.88f);
+                } else {
+                    bg_color = config->colors.primary;
+                }
+                fg_color = config->colors.on_primary;
+                break;
+
+            case ButtonStyle::Outlined:
+                if (m_pressed) {
+                    bg_color = config->colors.primary.with_alpha(0.20f);
+                } else if (m_hovered) {
+                    bg_color = config->colors.surface_variant.with_alpha(0.60f);
+                } else {
+                    bg_color = Color::transparent();
+                }
+                fg_color = config->colors.primary;
+                border_color = config->colors.outline;
+                border_width = 1.0;
+                break;
+
+            case ButtonStyle::Flat:
+                if (m_pressed) {
+                    bg_color = config->colors.primary.with_alpha(0.25f);
+                    fg_color = config->colors.primary;
+                } else if (m_hovered) {
+                    bg_color = config->colors.surface_variant.with_alpha(0.60f);
+                    fg_color = config->colors.on_surface;
+                } else {
+                    bg_color = Color::transparent();
+                    fg_color = config->colors.on_surface;
+                }
+                break;
+
+            case ButtonStyle::Standard:
+            default:
+                if (m_pressed) {
+                    bg_color = config->colors.primary.with_alpha(0.30f);
+                    fg_color = config->colors.primary;
+                    border_color = config->colors.outline;
+                    border_width = 1.0;
+                } else if (m_hovered) {
+                    bg_color = config->colors.surface_variant;
+                    fg_color = config->colors.on_surface;
+                    border_color = config->colors.outline;
+                    border_width = 1.0;
+                } else {
+                    bg_color = config->colors.surface_variant.with_alpha(0.65f);
+                    fg_color = config->colors.on_surface;
+                    border_color = config->colors.outline_variant;
+                    border_width = 1.0;
+                }
+                break;
+        }
     }
 
     int radius = (m_corner_radius >= 0) ? m_corner_radius : config->metrics.corner_radius;
@@ -85,11 +143,11 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
         cairo_fill(cr);
     }
 
-    // Border if selected
-    if (m_selected) {
-        CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, radius);
-        cairo_set_source_rgba(cr, config->colors.primary.r, config->colors.primary.g, config->colors.primary.b, 0.8);
-        cairo_set_line_width(cr, 1.0);
+    // Border
+    if (border_width > 0.0 && border_color.a > 0.0f) {
+        CardView::draw_rounded_rect(cr, draw_x + 0.5, draw_y + 0.5, draw_w - 1.0, draw_h - 1.0, std::max(0, radius - 1));
+        cairo_set_source_rgba(cr, border_color.r, border_color.g, border_color.b, border_color.a);
+        cairo_set_line_width(cr, border_width);
         cairo_stroke(cr);
     }
 
@@ -113,17 +171,25 @@ void Button::draw(cairo_t* cr, const Rect& bounds) {
         if (font_family.empty()) font_family = "Sans";
 
         std::string font_desc_str = font_family + " " + std::to_string(font_size);
-        if (m_font_bold) font_desc_str += " Bold";
+        bool is_bold = m_font_bold || (m_style == ButtonStyle::Primary);
+        if (is_bold) font_desc_str += " Bold";
 
         PangoFontDescription* desc = pango_font_description_from_string(font_desc_str.c_str());
         pango_layout_set_font_description(text_layout, desc);
         pango_font_description_free(desc);
 
-        int max_text_w = std::max(0, avail_content_w - icon_w - gap);
-        pango_layout_set_width(text_layout, max_text_w * PANGO_SCALE);
-        pango_layout_set_ellipsize(text_layout, PANGO_ELLIPSIZE_END);
+        int unconstrained_w = 0, unconstrained_h = 0;
+        pango_layout_get_pixel_size(text_layout, &unconstrained_w, &unconstrained_h);
 
-        pango_layout_get_pixel_size(text_layout, &text_w, &text_h);
+        int max_text_w = std::max(0, avail_content_w - icon_w - gap);
+        if (unconstrained_w > max_text_w) {
+            pango_layout_set_width(text_layout, max_text_w * PANGO_SCALE);
+            pango_layout_set_ellipsize(text_layout, PANGO_ELLIPSIZE_END);
+            pango_layout_get_pixel_size(text_layout, &text_w, &text_h);
+        } else {
+            text_w = unconstrained_w;
+            text_h = unconstrained_h;
+        }
     }
 
     int total_content_w = icon_w + gap + text_w;

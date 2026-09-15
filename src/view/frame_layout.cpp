@@ -3,16 +3,27 @@
 namespace miqu {
 
 Size FrameLayout::measure_size() const {
-    int max_w = 0;
-    int max_h = 0;
+    return measure_size(-1);
+}
+
+Size FrameLayout::measure_size(int avail_width) const {
+    int inner_w = (avail_width >= 0) ? std::max(0, avail_width - m_padding.left - m_padding.right) : -1;
+    int max_w = (m_layout_params.width >= 0) ? m_layout_params.width : 0;
+    int max_h = (m_layout_params.height >= 0) ? m_layout_params.height : 0;
 
     for (const auto& child : m_children) {
         if (!child || child->get_visibility() == Visibility::Gone) continue;
 
-        Size child_size = child->measure_size();
+        const auto& params = child->get_layout_params();
         const auto& margin = child->get_margin();
-        int child_total_w = child_size.width + margin.left + margin.right;
-        int child_total_h = child_size.height + margin.top + margin.bottom;
+        int child_avail_w = (inner_w >= 0) ? std::max(0, inner_w - margin.left - margin.right) : -1;
+        Size child_size = child->measure_size(child_avail_w);
+
+        int child_w = (params.width >= 0) ? params.width : child_size.width;
+        int child_h = (params.height >= 0) ? params.height : child_size.height;
+
+        int child_total_w = child_w + margin.left + margin.right;
+        int child_total_h = child_h + margin.top + margin.bottom;
 
         max_w = std::max(max_w, child_total_w);
         max_h = std::max(max_h, child_total_h);
@@ -55,29 +66,31 @@ void FrameLayout::draw(cairo_t* cr, const Rect& bounds) {
 
         const auto& params = child->get_layout_params();
         const auto& margin = child->get_margin();
-        Size measured = child->measure_size();
+        int child_avail_w = std::max(0, avail_w - margin.left - margin.right);
+        int child_avail_h = std::max(0, avail_h - margin.top - margin.bottom);
+        Size measured = child->measure_size(child_avail_w);
 
         int child_w = 0;
         int child_h = 0;
 
         if (params.width == static_cast<int>(LayoutDimension::MatchParent)) {
-            child_w = std::max(0, avail_w - margin.left - margin.right);
+            child_w = child_avail_w;
         } else if (params.width >= 0) {
-            child_w = params.width;
+            child_w = std::min(params.width, child_avail_w);
         } else if (measured.width > 0) {
-            child_w = measured.width;
+            child_w = std::min(measured.width, child_avail_w);
         } else {
-            child_w = std::max(0, avail_w - margin.left - margin.right);
+            child_w = child_avail_w;
         }
 
         if (params.height == static_cast<int>(LayoutDimension::MatchParent)) {
-            child_h = std::max(0, avail_h - margin.top - margin.bottom);
+            child_h = child_avail_h;
         } else if (params.height >= 0) {
             child_h = params.height;
         } else if (measured.height > 0) {
             child_h = measured.height;
         } else {
-            child_h = std::max(0, avail_h - margin.top - margin.bottom);
+            child_h = child_avail_h;
         }
 
         int child_x = origin_x + margin.left;

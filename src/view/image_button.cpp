@@ -50,7 +50,7 @@ void ImageButton::draw(cairo_t* cr, const Rect& bounds) {
             cairo_set_source_rgba(cr, bg_col.r, bg_col.g, bg_col.b, bg_col.a);
             cairo_fill(cr);
         } else {
-            int radius = (m_corner_radius >= 0) ? m_corner_radius : 8;
+            int radius = (m_corner_radius >= 0) ? m_corner_radius : (config->metrics.corner_radius > 0 ? config->metrics.corner_radius : 12);
             CardView::draw_rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
             cairo_set_source_rgba(cr, bg_col.r, bg_col.g, bg_col.b, bg_col.a);
             cairo_fill(cr);

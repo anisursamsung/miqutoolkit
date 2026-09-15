@@ -20,29 +20,77 @@ static std::string trim_str(const std::string& str) {
     return str.substr(first, (last - first + 1));
 }
 
-static std::string expand_home(const std::string& path) {
+static std::string expand_path(const std::string& path) {
     if (path.empty()) return path;
-    if (path[0] == '~') {
+
+    std::string result = path;
+
+    // 1. Expand ~ or ~username
+    if (result[0] == '~') {
         const char* home = getenv("HOME");
         if (home) {
-            return std::string(home) + path.substr(1);
+            result = std::string(home) + result.substr(1);
         }
     }
-    return path;
+
+    // 2. Expand $VAR and ${VAR}
+    size_t pos = 0;
+    while ((pos = result.find('$', pos)) != std::string::npos) {
+        size_t end = pos + 1;
+        std::string var_name;
+        if (end < result.size() && result[end] == '{') {
+            size_t close_brace = result.find('}', end);
+            if (close_brace != std::string::npos) {
+                var_name = result.substr(end + 1, close_brace - end - 1);
+                const char* val = getenv(var_name.c_str());
+                std::string rep = val ? val : "";
+                result.replace(pos, close_brace - pos + 1, rep);
+                pos += rep.size();
+                continue;
+            }
+        } else {
+            while (end < result.size() && (std::isalnum(result[end]) || result[end] == '_')) {
+                end++;
+            }
+            var_name = result.substr(pos + 1, end - pos - 1);
+            if (!var_name.empty()) {
+                const char* val = getenv(var_name.c_str());
+                std::string rep = val ? val : "";
+                result.replace(pos, end - pos, rep);
+                pos += rep.size();
+                continue;
+            }
+        }
+        pos++;
+    }
+
+    return result;
 }
 
 std::shared_ptr<Config> Config::get() {
     if (!s_instance) {
         s_instance = std::make_shared<Config>();
+        s_instance->init_toolkit_defaults();
     }
     return s_instance;
 }
 
-static void load_config_file_internal(const std::string& path, Config::Colors& colors, Config::Metrics& metrics, int depth) {
+static void load_config_file_internal(const std::string& path, Config::Colors& colors, Config::Metrics& metrics, std::vector<std::string>& loaded_files, int depth) {
     if (depth > 10) return;
 
-    std::string expanded = expand_home(path);
+    std::string expanded = expand_path(path);
     if (!fs::exists(expanded)) return;
+
+    std::string canonical_path;
+    try {
+        canonical_path = fs::canonical(expanded).string();
+    } catch (...) {
+        canonical_path = fs::absolute(expanded).string();
+    }
+
+    if (std::find(loaded_files.begin(), loaded_files.end(), canonical_path) == loaded_files.end()) {
+        loaded_files.push_back(canonical_path);
+    }
 
     std::ifstream file(expanded);
     if (!file.is_open()) return;
@@ -99,7 +147,7 @@ static void load_config_file_internal(const std::string& path, Config::Colors& c
         }
 
         if (key == "source" || key == "include") {
-            std::string inc_path = expand_home(val);
+            std::string inc_path = expand_path(val);
             if (!fs::exists(inc_path)) {
                 // Try relative to current file directory
                 fs::path rel1 = parent_dir / val;
@@ -113,7 +161,19 @@ static void load_config_file_internal(const std::string& path, Config::Colors& c
                     }
                 }
             }
-            load_config_file_internal(inc_path, colors, metrics, depth + 1);
+
+            // Always track target file so inotify watches its directory even if file is created later
+            std::string abs_inc;
+            try {
+                abs_inc = fs::absolute(inc_path).string();
+            } catch (...) {
+                abs_inc = inc_path;
+            }
+            if (std::find(loaded_files.begin(), loaded_files.end(), abs_inc) == loaded_files.end()) {
+                loaded_files.push_back(abs_inc);
+            }
+
+            load_config_file_internal(inc_path, colors, metrics, loaded_files, depth + 1);
             continue;
         }
 
@@ -142,12 +202,22 @@ static void load_config_file_internal(const std::string& path, Config::Colors& c
             colors.outline = Color::from_hex(val, colors.outline);
         } else if (key == "color_outline_variant" || key == "outline_variant" || key == "col.outline_variant") {
             colors.outline_variant = Color::from_hex(val, colors.outline_variant);
+        } else if (key == "color_backdrop" || key == "backdrop" || key == "col.backdrop") {
+            colors.backdrop = Color::from_hex(val, colors.backdrop);
         } else if (key == "icon_theme") {
             metrics.icon_theme = val;
         } else if (key == "font_family" || key == "font") {
             metrics.font_family = val;
         } else if (key == "font_size") {
             try { metrics.font_size = std::stoi(val); } catch (...) {}
+        } else if (key == "h1_size" || key == "heading1_size") {
+            try { metrics.h1_size = std::stoi(val); } catch (...) {}
+        } else if (key == "h2_size" || key == "heading2_size") {
+            try { metrics.h2_size = std::stoi(val); } catch (...) {}
+        } else if (key == "h3_size" || key == "heading3_size") {
+            try { metrics.h3_size = std::stoi(val); } catch (...) {}
+        } else if (key == "caption_size") {
+            try { metrics.caption_size = std::stoi(val); } catch (...) {}
         } else if (key == "window_border_radius" || key == "border_radius" || key == "corner_radius" || key == "rounding") {
             try { metrics.corner_radius = std::stoi(val); } catch (...) {}
         } else if (key == "window_border_width" || key == "border_width" || key == "border_size") {
@@ -157,10 +227,63 @@ static void load_config_file_internal(const std::string& path, Config::Colors& c
 }
 
 bool Config::load_from_file(const std::string& path) {
-    std::string expanded = expand_home(path);
+    std::string expanded = expand_path(path);
     if (!fs::exists(expanded)) return false;
-    load_config_file_internal(expanded, colors, metrics, 0);
+    load_config_file_internal(expanded, colors, metrics, m_loaded_files, 0);
     return true;
+}
+
+void Config::notify_changed() {
+    for (auto& listener : m_change_listeners) {
+        if (listener) listener();
+    }
+}
+
+void Config::init_toolkit_defaults() {
+    m_loaded_files.clear();
+
+    std::string user_cfg_dir = FsUtils::get_user_config_dir("miqutoolkit");
+    std::string user_cfg_file = user_cfg_dir.empty() ? "" : (user_cfg_dir + "/miqutoolkit.conf");
+
+    // Tier 2: Check if user config exists already
+    if (!user_cfg_file.empty() && fs::exists(user_cfg_file)) {
+        load_from_file(user_cfg_file);
+        notify_changed();
+        return;
+    }
+
+    // If user configuration directory exists but file is absent,
+    // the user intentionally deleted their config. Fall back directly to root.
+    bool user_deleted_config = !user_cfg_dir.empty() && fs::exists(user_cfg_dir) && !fs::exists(user_cfg_file);
+
+    if (!user_deleted_config) {
+        // First launch: initialize user config from root template
+        std::string seeded = ensure_user_config("miqutoolkit", "miqutoolkit.conf");
+        if (!seeded.empty() && fs::exists(seeded)) {
+            load_from_file(seeded);
+            notify_changed();
+            return;
+        }
+    }
+
+    // Tier 3: Safe root fallback
+    const std::vector<std::string> root_candidates = {
+        "/usr/share/miqutoolkit/miqutoolkit.conf",
+        "/etc/xdg/miqutoolkit/miqutoolkit.conf",
+        "/etc/miqutoolkit/miqutoolkit.conf",
+        "/usr/local/share/miqutoolkit/miqutoolkit.conf",
+        "assets/miqutoolkit.conf",
+        "../assets/miqutoolkit.conf"
+    };
+
+    for (const auto& root_file : root_candidates) {
+        if (fs::exists(root_file)) {
+            if (load_from_file(root_file)) {
+                break;
+            }
+        }
+    }
+    notify_changed();
 }
 
 std::string Config::ensure_user_config(

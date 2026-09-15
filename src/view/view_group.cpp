@@ -1,5 +1,6 @@
 #include "miqutoolkit/view/view_group.hpp"
 #include <cmath>
+#include <algorithm>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -12,6 +13,8 @@ void ViewGroup::draw_rounded_rect(cairo_t* cr, double x, double y, double w, dou
         cairo_rectangle(cr, x, y, w, h);
         return;
     }
+    double max_r = std::min(w, h) / 2.0;
+    if (r > max_r) r = max_r;
     double deg = M_PI / 180.0;
     cairo_new_sub_path(cr);
     cairo_arc(cr, x + w - r, y + r, r, -90 * deg, 0 * deg);
@@ -96,6 +99,9 @@ bool ViewGroup::on_mouse_button(int lx, int ly, MouseButton button, bool pressed
     // Traverse top-to-bottom (reverse order)
     for (auto it = m_child_entries.rbegin(); it != m_child_entries.rend(); ++it) {
         if (it->view && it->view->is_visible()) {
+            if (pressed && !it->allocated_bounds.contains(Point(lx, ly))) {
+                continue;
+            }
             if (it->view->on_mouse_button(lx, ly, button, pressed, it->allocated_bounds)) {
                 return true;
             }

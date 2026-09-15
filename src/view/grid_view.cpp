@@ -166,16 +166,18 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
         bool is_selected = (i == m_selected_index);
         bool is_hovered = (i == m_hovered_index);
 
+        double cell_radius = config->metrics.corner_radius > 0 ? static_cast<double>(config->metrics.corner_radius) : 12.0;
+
         // Tile background (Selected / Hovered highlight)
         if (is_selected) {
-            CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, 8.0);
+            CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, cell_radius);
             cairo_set_source_rgba(cr, config->colors.primary_container.r,
                                       config->colors.primary_container.g,
                                       config->colors.primary_container.b,
                                       0.6f);
             cairo_fill(cr);
 
-            CardView::draw_rounded_rect(cr, cell_x + 0.5, cell_y + 0.5, cell_w - 1.0, m_cell_h - 1.0, 8.0);
+            CardView::draw_rounded_rect(cr, cell_x + 0.5, cell_y + 0.5, cell_w - 1.0, m_cell_h - 1.0, cell_radius);
             cairo_set_source_rgba(cr, config->colors.primary.r,
                                       config->colors.primary.g,
                                       config->colors.primary.b,
@@ -183,7 +185,7 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
             cairo_set_line_width(cr, 1.0);
             cairo_stroke(cr);
         } else if (is_hovered) {
-            CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, 8.0);
+            CardView::draw_rounded_rect(cr, cell_x, cell_y, cell_w, m_cell_h, cell_radius);
             cairo_set_source_rgba(cr, config->colors.surface_variant.r,
                                       config->colors.surface_variant.g,
                                       config->colors.surface_variant.b,

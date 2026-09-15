@@ -116,11 +116,20 @@ add_library(miqutoolkit SHARED
     src/view/edit_text.cpp
     src/view/search_view.cpp
     src/view/grid_view.cpp
-    src/view/seek_bar.cpp
+    src/view/slider.cpp
+    src/view/progress_bar.cpp
     src/view/circle_image_view.cpp
     src/view/image_button.cpp
     src/view/tile_view.cpp
+    src/view/divider_view.cpp
+    src/view/tab_bar.cpp
+    src/view/view_pager.cpp
+    src/view/navigation_view.cpp
     src/view/resizable_container.cpp
+    src/view/scroll_view.cpp
+    src/view/switch.cpp
+    src/view/toolbar.cpp
+    src/view/bottom_navigation_view.cpp
     src/system/window_manager.cpp
     src/system/workspace_manager.cpp
     src/system/output_manager.cpp
@@ -192,4 +201,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/miqutoolkit
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/miqutoolkit.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
+
+install(FILES assets/miqutoolkit.conf
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/miqutoolkit
 )

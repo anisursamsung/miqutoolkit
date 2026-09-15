@@ -12,8 +12,8 @@ void TileView::draw(cairo_t* cr, const Rect& bounds) {
     if (!cr || bounds.width <= 0 || bounds.height <= 0) return;
 
     auto config = Config::get();
-    std::string font_family = config->metrics.font_family.empty() ? "Sans" : config->metrics.font_family;
-    int font_size = config->metrics.font_size > 0 ? config->metrics.font_size : 10;
+    std::string font_family = !config->metrics.font_family.empty() ? config->metrics.font_family : "Sans";
+    int font_size = config->metrics.font_size > 0 ? config->metrics.font_size : 11;
     int horiz_padding = 8;
     int text_max_w = std::max(0, bounds.width - horiz_padding * 2);
 

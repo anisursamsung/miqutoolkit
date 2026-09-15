@@ -51,12 +51,18 @@ OutputManager* OutputManager::get() {
 }
 
 OutputManager::~OutputManager() {
+    clear();
+}
+
+void OutputManager::clear() {
     for (auto& item : m_outputs) {
         if (item && item->info.wl_output) {
             wl_output_destroy(item->info.wl_output);
+            item->info.wl_output = nullptr;
         }
     }
     m_outputs.clear();
+    m_listeners.clear();
 }
 
 std::vector<OutputInfo> OutputManager::get_outputs() const {

@@ -26,7 +26,14 @@ public:
     virtual void draw(cairo_t* cr, const Rect& bounds) = 0;
 
     virtual Size measure_size() const {
-        return Size(m_bounds.width, m_bounds.height);
+        int w = (m_layout_params.width >= 0) ? m_layout_params.width : m_bounds.width;
+        int h = (m_layout_params.height >= 0) ? m_layout_params.height : m_bounds.height;
+        return Size(w, h);
+    }
+
+    virtual Size measure_size(int avail_width) const {
+        (void)avail_width;
+        return measure_size();
     }
 
     virtual bool on_mouse_move(int lx, int ly, const Rect& bounds) { return false; }

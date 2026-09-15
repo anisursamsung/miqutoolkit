@@ -56,6 +56,8 @@ public:
     void set_quit_on_last_window_closed(bool quit) { m_quit_on_last_window = quit; }
     bool get_quit_on_last_window_closed() const { return m_quit_on_last_window; }
 
+    void add_theme_change_listener(std::function<void()> listener) { m_theme_change_listeners.push_back(std::move(listener)); }
+
     static AppEngine* instance() { return s_instance; }
 
 private:
@@ -94,6 +96,13 @@ private:
     int m_wakeup_fd = -1;
     std::mutex m_tasks_mutex;
     std::vector<std::function<void()>> m_posted_tasks;
+
+    int m_inotify_fd = -1;
+    std::vector<std::pair<int, std::string>> m_inotify_watches;
+    std::vector<std::function<void()>> m_theme_change_listeners;
+
+    void setup_config_watcher();
+    void handle_inotify_events();
 };
 
 } // namespace miqu

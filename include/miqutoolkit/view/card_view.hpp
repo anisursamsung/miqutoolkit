@@ -18,6 +18,17 @@ public:
 
     void draw(cairo_t* cr, const Rect& bounds) override;
 
+    using ViewGroup::add_view;
+    void add_view(std::shared_ptr<View> child) override {
+        if (!child) return;
+        if (child->get_layout_params().width == static_cast<int>(LayoutDimension::WrapContent)) {
+            auto params = child->get_layout_params();
+            params.width = static_cast<int>(LayoutDimension::MatchParent);
+            child->set_layout_params(params);
+        }
+        FrameLayout::add_view(std::move(child));
+    }
+
     static void draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r);
 };
 

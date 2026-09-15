@@ -5,33 +5,109 @@
 namespace miqu {
 
 Size LinearLayout::measure_size() const {
+    return measure_size(-1);
+}
+
+Size LinearLayout::measure_size(int avail_width) const {
     int total_w = 0;
     int total_h = 0;
     int visible_child_count = 0;
 
-    for (const auto& child : m_children) {
-        if (!child || child->get_visibility() == Visibility::Gone) continue;
+    int inner_w = (avail_width >= 0) ? std::max(0, avail_width - m_padding.left - m_padding.right) : -1;
 
-        Size child_size = child->measure_size();
-        const auto& margin = child->get_margin();
-        int child_total_w = child_size.width + margin.left + margin.right;
-        int child_total_h = child_size.height + margin.top + margin.bottom;
+    if (m_orientation == Orientation::Horizontal && inner_w >= 0) {
+        // Horizontal orientation with known available width: calculate weights first
+        float total_weight = 0.0f;
+        int used_fixed = 0;
 
-        if (m_orientation == Orientation::Horizontal) {
-            total_w += child_total_w;
-            total_h = std::max(total_h, child_total_h);
-        } else {
-            total_w = std::max(total_w, child_total_w);
-            total_h += child_total_h;
+        for (const auto& child : m_children) {
+            if (!child || child->get_visibility() == Visibility::Gone) continue;
+            const auto& params = child->get_layout_params();
+            const auto& margin = child->get_margin();
+
+            if (params.weight > 0.0f) {
+                total_weight += params.weight;
+                used_fixed += margin.left + margin.right;
+            } else {
+                Size child_size = child->measure_size(-1);
+                int child_w = (params.width >= 0) ? params.width : child_size.width;
+                used_fixed += child_w + margin.left + margin.right;
+            }
+            visible_child_count++;
         }
-        visible_child_count++;
-    }
 
-    if (visible_child_count > 1) {
-        if (m_orientation == Orientation::Horizontal) {
+        if (visible_child_count > 1) {
+            used_fixed += (visible_child_count - 1) * m_spacing;
+        }
+
+        int remaining = std::max(0, inner_w - used_fixed);
+
+        // Second pass: measure children with their allocated width
+        for (const auto& child : m_children) {
+            if (!child || child->get_visibility() == Visibility::Gone) continue;
+            const auto& params = child->get_layout_params();
+            const auto& margin = child->get_margin();
+
+            int child_w = 0;
+            int child_avail_w = -1;
+
+            if (params.weight > 0.0f && total_weight > 0.0f) {
+                child_w = static_cast<int>((params.weight / total_weight) * remaining);
+                child_avail_w = child_w;
+            } else if (params.width >= 0) {
+                child_w = params.width;
+                child_avail_w = child_w;
+            }
+
+            Size child_size = child->measure_size(child_avail_w);
+            if (child_w <= 0) {
+                child_w = (params.width >= 0) ? params.width : child_size.width;
+            }
+            int child_h = (params.height >= 0) ? params.height : child_size.height;
+
+            total_w += child_w + margin.left + margin.right;
+            total_h = std::max(total_h, child_h + margin.top + margin.bottom);
+        }
+
+        if (visible_child_count > 1) {
             total_w += (visible_child_count - 1) * m_spacing;
-        } else {
-            total_h += (visible_child_count - 1) * m_spacing;
+        }
+    } else {
+        for (const auto& child : m_children) {
+            if (!child || child->get_visibility() == Visibility::Gone) continue;
+
+            const auto& params = child->get_layout_params();
+            const auto& margin = child->get_margin();
+
+            int child_avail_w = -1;
+            if (m_orientation == Orientation::Vertical) {
+                child_avail_w = (inner_w >= 0) ? std::max(0, inner_w - margin.left - margin.right) : -1;
+            }
+
+            Size child_size = child->measure_size(child_avail_w);
+
+            int child_w = (params.width >= 0) ? params.width : child_size.width;
+            int child_h = (params.height >= 0) ? params.height : child_size.height;
+
+            int child_total_w = child_w + margin.left + margin.right;
+            int child_total_h = child_h + margin.top + margin.bottom;
+
+            if (m_orientation == Orientation::Horizontal) {
+                total_w += child_total_w;
+                total_h = std::max(total_h, child_total_h);
+            } else {
+                total_w = std::max(total_w, child_total_w);
+                total_h += child_total_h;
+            }
+            visible_child_count++;
+        }
+
+        if (visible_child_count > 1) {
+            if (m_orientation == Orientation::Horizontal) {
+                total_w += (visible_child_count - 1) * m_spacing;
+            } else {
+                total_h += (visible_child_count - 1) * m_spacing;
+            }
         }
     }
 
@@ -109,7 +185,6 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
 
         const auto& params = child->get_layout_params();
         const auto& margin = child->get_margin();
-        Size measured = child->measure_size();
 
         int child_w = 0;
         int child_h = 0;
@@ -119,20 +194,26 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
                 child_w = static_cast<int>((params.weight / total_weight) * remaining_space);
             } else if (params.width >= 0) {
                 child_w = params.width;
-            } else if (measured.width > 0) {
-                child_w = measured.width;
             } else {
-                child_w = std::max(0, avail_w - margin.left - margin.right);
+                Size measured = child->measure_size();
+                if (measured.width > 0) {
+                    child_w = measured.width;
+                } else {
+                    child_w = std::max(0, avail_w - margin.left - margin.right);
+                }
             }
 
+            int child_avail_h = std::max(0, avail_h - margin.top - margin.bottom);
+            Size child_m = child->measure_size(child_w);
+
             if (params.height == static_cast<int>(LayoutDimension::MatchParent)) {
-                child_h = std::max(0, avail_h - margin.top - margin.bottom);
+                child_h = child_avail_h;
             } else if (params.height >= 0) {
                 child_h = params.height;
-            } else if (measured.height > 0) {
-                child_h = measured.height;
+            } else if (child_m.height > 0) {
+                child_h = child_m.height;
             } else {
-                child_h = std::max(0, avail_h - margin.top - margin.bottom);
+                child_h = child_avail_h;
             }
 
             int child_x = origin_x + current_cursor + margin.left;
@@ -152,6 +233,9 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
             current_cursor += child_w + margin.left + margin.right + m_spacing;
         } else {
             // Vertical Orientation
+            int child_avail_w = std::max(0, avail_w - margin.left - margin.right);
+            Size measured = child->measure_size(child_avail_w);
+
             if (params.weight > 0.0f && total_weight > 0.0f) {
                 child_h = static_cast<int>((params.weight / total_weight) * remaining_space);
             } else if (params.height >= 0) {
@@ -163,13 +247,13 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
             }
 
             if (params.width == static_cast<int>(LayoutDimension::MatchParent)) {
-                child_w = std::max(0, avail_w - margin.left - margin.right);
+                child_w = child_avail_w;
             } else if (params.width >= 0) {
-                child_w = params.width;
+                child_w = std::min(params.width, child_avail_w);
             } else if (measured.width > 0) {
-                child_w = measured.width;
+                child_w = std::min(measured.width, child_avail_w);
             } else {
-                child_w = std::max(0, avail_w - margin.left - margin.right);
+                child_w = child_avail_w;
             }
 
             int child_x = origin_x + margin.left;

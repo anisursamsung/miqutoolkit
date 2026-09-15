@@ -184,7 +184,7 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
     }
 
     std::string user_theme = Config::get()->metrics.icon_theme;
-    if (user_theme.empty()) user_theme = "Papirus";
+    if (user_theme.empty()) user_theme = "hicolor";
 
     std::string cache_key = user_theme + ":" + icon_name;
     {

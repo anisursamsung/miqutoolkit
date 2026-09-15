@@ -9,6 +9,8 @@ enum class MouseButton {
     Left = 272,
     Right = 273,
     Middle = 274,
+    Back = 277,
+    Forward = 278,
 };
 
 enum class PointerShape {

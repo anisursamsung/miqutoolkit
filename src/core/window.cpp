@@ -147,6 +147,8 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
         MouseButton mb = MouseButton::Left;
         if (button == 0x111) mb = MouseButton::Right;
         else if (button == 0x112) mb = MouseButton::Middle;
+        else if (button == 0x113 || button == 0x116) mb = MouseButton::Back;
+        else if (button == 0x114 || button == 0x115) mb = MouseButton::Forward;
 
         bool pressed = (state == WL_POINTER_BUTTON_STATE_PRESSED);
 
@@ -444,19 +446,27 @@ void Window::set_content_view(std::shared_ptr<View> view) {
 
 void Window::schedule_redraw() {
     if (!m_configured) return;
-    if (m_frame_callback) {
+    if (m_rendering || m_frame_callback) {
         m_needs_redraw = true;
         return;
     }
     render_frame();
 }
 
+void Window::refresh_theme() {
+    schedule_redraw();
+}
+
 void Window::render_frame() {
     if (!m_configured || !m_shm_pool || !m_surface) return;
     m_needs_redraw = false;
+    m_rendering = true;
 
     auto* buf = m_shm_pool->get_next_buffer();
-    if (!buf || !buf->cr) return;
+    if (!buf || !buf->cr) {
+        m_rendering = false;
+        return;
+    }
 
     // Clear buffer
     cairo_save(buf->cr);
@@ -465,23 +475,45 @@ void Window::render_frame() {
     cairo_restore(buf->cr);
 
     if (m_role == WindowRole::Toplevel) {
+        if (!m_transparent) {
+            Color bg = m_has_custom_bg ? m_background_color : Config::get()->colors.background;
+            if (bg.a > 0.0f) {
+                cairo_save(buf->cr);
+                cairo_set_source_rgba(buf->cr, bg.r, bg.g, bg.b, bg.a);
+                cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
+                cairo_fill(buf->cr);
+                cairo_restore(buf->cr);
+            }
+        }
+
         if (m_root_view && m_root_view->is_visible()) {
             Rect content_bounds(0, 0, m_width, m_height);
             m_allocated_content_bounds = content_bounds;
             m_root_view->draw(buf->cr, content_bounds);
         }
     } else {
-        // 1. Draw Dim Backdrop if enabled
-        if (m_dim_backdrop) {
-            auto config = Config::get();
-            cairo_save(buf->cr);
-            cairo_set_source_rgba(buf->cr, config->colors.backdrop.r,
-                                          config->colors.backdrop.g,
-                                          config->colors.backdrop.b,
-                                          config->colors.backdrop.a);
-            cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
-            cairo_fill(buf->cr);
-            cairo_restore(buf->cr);
+        // 1. Draw Backdrop / Background if not transparent
+        if (!m_transparent) {
+            if (m_has_custom_bg && m_background_color.a > 0.0f) {
+                cairo_save(buf->cr);
+                cairo_set_source_rgba(buf->cr, m_background_color.r,
+                                              m_background_color.g,
+                                              m_background_color.b,
+                                              m_background_color.a);
+                cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
+                cairo_fill(buf->cr);
+                cairo_restore(buf->cr);
+            } else if (m_dim_backdrop) {
+                auto config = Config::get();
+                cairo_save(buf->cr);
+                cairo_set_source_rgba(buf->cr, config->colors.backdrop.r,
+                                              config->colors.backdrop.g,
+                                              config->colors.backdrop.b,
+                                              config->colors.backdrop.a);
+                cairo_rectangle(buf->cr, 0, 0, m_width, m_height);
+                cairo_fill(buf->cr);
+                cairo_restore(buf->cr);
+            }
         }
 
         // 2. Draw Content View
@@ -510,6 +542,7 @@ void Window::render_frame() {
 
     wl_surface_commit(m_surface);
     wl_display_flush(AppEngine::instance()->get_display());
+    m_rendering = false;
 }
 
 void Window::close() {

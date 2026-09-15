@@ -38,6 +38,7 @@ public:
     const OutputInfo* find_output_by_wl_output(struct wl_output* out) const;
 
     void on_outputs_changed(std::function<void()> callback);
+    void clear();
 
     void handle_global(struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version);
     void handle_global_remove(uint32_t name);

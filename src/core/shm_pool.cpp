@@ -55,15 +55,17 @@ ShmPool::~ShmPool() {
 
 void ShmPool::resize(int width, int height) {
     if (m_width == width && m_height == height) return;
-
-    m_width = width;
-    m_height = height;
+    if (width <= 0 || height <= 0) return;
 
     destroy_buffer(m_buffers[0]);
     destroy_buffer(m_buffers[1]);
 
+    m_width = width;
+    m_height = height;
+
     create_buffer(m_buffers[0]);
     create_buffer(m_buffers[1]);
+    m_current_buffer = 0;
 }
 
 bool ShmPool::create_buffer(Buffer& buf) {
@@ -81,6 +83,7 @@ bool ShmPool::create_buffer(Buffer& buf) {
         buf.data = nullptr;
         return false;
     }
+    buf.size = size;
 
     struct wl_shm_pool* pool = wl_shm_create_pool(m_shm, fd, size);
     buf.wl_buf = wl_shm_pool_create_buffer(pool, 0, m_width, m_height, stride, WL_SHM_FORMAT_ARGB8888);
@@ -116,9 +119,11 @@ void ShmPool::destroy_buffer(Buffer& buf) {
         buf.wl_buf = nullptr;
     }
     if (buf.data && buf.data != MAP_FAILED) {
-        int stride = m_width * 4;
-        munmap(buf.data, stride * m_height);
+        if (buf.size > 0) {
+            munmap(buf.data, buf.size);
+        }
         buf.data = nullptr;
+        buf.size = 0;
     }
     buf.busy = false;
 }

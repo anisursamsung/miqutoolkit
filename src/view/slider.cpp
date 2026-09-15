@@ -1,18 +1,22 @@
-#include "miqutoolkit/view/seek_bar.hpp"
+#include "miqutoolkit/view/slider.hpp"
 #include "miqutoolkit/view/card_view.hpp"
 #include "miqutoolkit/core/config.hpp"
 #include "miqutoolkit/core/window.hpp"
 #include <cmath>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace miqu {
 
-Size SeekBar::measure_size() const {
+Size Slider::measure_size() const {
     int w = 120 + m_padding.left + m_padding.right;
     int h = std::max(m_track_height, m_thumb_radius * 2) + 12 + m_padding.top + m_padding.bottom;
     return Size(w, h);
 }
 
-void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
+void Slider::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
     auto config = Config::get();
@@ -24,7 +28,7 @@ void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
 
     if (draw_w <= 0 || draw_h <= 0) return;
 
-    Color track_bg = m_custom_track ? m_track_color : config->colors.surface_variant.with_alpha(0.4f);
+    Color track_bg = m_custom_track ? m_track_color : config->colors.surface_variant;
     Color prog_color = m_custom_progress ? m_progress_color : config->colors.primary;
     Color thumb_col = m_custom_thumb ? m_thumb_color : config->colors.primary;
 
@@ -38,7 +42,7 @@ void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
 
     int track_start_x = draw_x + thumb_r;
     int track_width = usable_w;
-    int fill_width = static_cast<int>(usable_w * m_progress);
+    int fill_width = static_cast<int>(usable_w * m_value);
 
     cairo_save(cr);
 
@@ -54,8 +58,8 @@ void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
         cairo_fill(cr);
     }
 
-    // 3. Draw Thumb (if visible)
-    if (m_thumb_visible && thumb_r > 0) {
+    // 3. Draw Thumb
+    if (thumb_r > 0) {
         int thumb_cx = track_start_x + fill_width;
 
         // Ambient halo on hover/drag
@@ -69,12 +73,17 @@ void SeekBar::draw(cairo_t* cr, const Rect& bounds) {
         cairo_arc(cr, thumb_cx, cy, thumb_r, 0, 2 * M_PI);
         cairo_set_source_rgba(cr, thumb_col.r, thumb_col.g, thumb_col.b, thumb_col.a);
         cairo_fill(cr);
+
+        // Crisp white inner dot for tactile contrast
+        cairo_arc(cr, thumb_cx, cy, std::max(2.0, thumb_r / 2.5), 0, 2 * M_PI);
+        cairo_set_source_rgba(cr, 1.0f, 1.0f, 1.0f, 0.9f);
+        cairo_fill(cr);
     }
 
     cairo_restore(cr);
 }
 
-bool SeekBar::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
+bool Slider::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (button != MouseButton::Left) return false;
 
     int draw_x = bounds.x;
@@ -86,21 +95,24 @@ bool SeekBar::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, 
     int track_start_x = draw_x + thumb_r;
 
     if (pressed) {
+        if (!bounds.contains(Point(lx, ly))) {
+            return false;
+        }
         m_dragging = true;
-        float p = std::clamp(static_cast<float>(lx - track_start_x) / usable_w, 0.0f, 1.0f);
-        m_progress = p;
-        if (m_on_seek) {
-            m_on_seek(m_progress, true);
+        float v = std::clamp(static_cast<float>(lx - track_start_x) / usable_w, 0.0f, 1.0f);
+        m_value = v;
+        if (m_on_change) {
+            m_on_change(m_value, true);
         }
         if (m_window) m_window->schedule_redraw();
         return true;
     } else {
         if (m_dragging) {
             m_dragging = false;
-            float p = std::clamp(static_cast<float>(lx - track_start_x) / usable_w, 0.0f, 1.0f);
-            m_progress = p;
-            if (m_on_seek) {
-                m_on_seek(m_progress, true);
+            float v = std::clamp(static_cast<float>(lx - track_start_x) / usable_w, 0.0f, 1.0f);
+            m_value = v;
+            if (m_on_change) {
+                m_on_change(m_value, true);
             }
             if (m_window) m_window->schedule_redraw();
             return true;
@@ -109,7 +121,7 @@ bool SeekBar::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, 
     return false;
 }
 
-bool SeekBar::on_mouse_move(int lx, int ly, const Rect& bounds) {
+bool Slider::on_mouse_move(int lx, int ly, const Rect& bounds) {
     int draw_x = bounds.x;
     int draw_w = bounds.width;
     int thumb_r = m_thumb_radius;
@@ -118,28 +130,26 @@ bool SeekBar::on_mouse_move(int lx, int ly, const Rect& bounds) {
 
     int track_start_x = draw_x + thumb_r;
 
-    bool prev_hovered = m_hovered;
-    m_hovered = (lx >= bounds.x && lx <= bounds.x + bounds.width &&
-                 ly >= bounds.y && ly <= bounds.y + bounds.height);
+    bool was_hovered = m_hovered;
+    m_hovered = bounds.contains(Point(lx, ly));
 
     if (m_dragging) {
-        float p = std::clamp(static_cast<float>(lx - track_start_x) / usable_w, 0.0f, 1.0f);
-        if (std::abs(p - m_progress) > 0.001f) {
-            m_progress = p;
-            if (m_on_seek) {
-                m_on_seek(m_progress, true);
+        float v = std::clamp(static_cast<float>(lx - track_start_x) / usable_w, 0.0f, 1.0f);
+        if (v != m_value) {
+            m_value = v;
+            if (m_on_change) {
+                m_on_change(m_value, true);
             }
             if (m_window) m_window->schedule_redraw();
         }
         return true;
     }
 
-    if (m_hovered != prev_hovered) {
-        if (m_window) m_window->schedule_redraw();
-        return true;
+    if (was_hovered != m_hovered && m_window) {
+        m_window->schedule_redraw();
     }
 
-    return false;
+    return m_hovered;
 }
 
 } // namespace miqu

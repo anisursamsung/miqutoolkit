@@ -76,11 +76,20 @@ public:
     // Backdrop & Modal options
     void set_dim_backdrop(bool dim) { m_dim_backdrop = dim; }
     bool is_dim_backdrop() const { return m_dim_backdrop; }
-
     void set_close_on_click_outside(bool close) { m_close_on_click_outside = close; }
+    bool is_close_on_click_outside() const { return m_close_on_click_outside; }
     void set_close_on_escape(bool close) { m_close_on_escape = close; }
+    bool is_close_on_escape() const { return m_close_on_escape; }
+
+    // Background & Transparency options
+    void set_background_color(const Color& col) { m_background_color = col; m_has_custom_bg = true; }
+    const Color& get_background_color() const { return m_background_color; }
+    void set_transparent(bool trans) { m_transparent = trans; }
+    bool is_transparent() const { return m_transparent; }
 
     void schedule_redraw();
+    void refresh_theme();
+    std::shared_ptr<View> root_view() const { return m_root_view; }
 
     void set_on_close(std::function<void()> cb) { m_on_close = std::move(cb); }
     void set_on_key(std::function<void(const KeyPressEvent&)> cb) { m_on_key = std::move(cb); }
@@ -117,9 +126,13 @@ private:
     bool m_dim_backdrop = false;
     bool m_close_on_click_outside = false;
     bool m_close_on_escape = false;
+    Color m_background_color;
+    bool m_has_custom_bg = false;
+    bool m_transparent = false;
 
     bool m_configured = false;
     bool m_needs_redraw = false;
+    bool m_rendering = false;
     bool m_has_keyboard_focus = false;
     Rect m_allocated_content_bounds;
 
@@ -203,6 +216,16 @@ public:
 
     std::shared_ptr<WindowBuilder> dimBackdrop(bool dim = true) {
         m_window->set_dim_backdrop(dim);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<WindowBuilder> backgroundColor(const Color& col) {
+        m_window->set_background_color(col);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<WindowBuilder> transparent(bool trans = true) {
+        m_window->set_transparent(trans);
         return shared_from_this();
     }
 

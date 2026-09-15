@@ -19,6 +19,7 @@ public:
         cairo_surface_t* cairo_surf = nullptr;
         cairo_t* cr = nullptr;
         void* data = nullptr;
+        size_t size = 0;
         bool busy = false;
     };
 
