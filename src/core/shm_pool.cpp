@@ -86,9 +86,24 @@ bool ShmPool::create_buffer(Buffer& buf) {
     buf.size = size;
 
     struct wl_shm_pool* pool = wl_shm_create_pool(m_shm, fd, size);
+    if (!pool) {
+        munmap(buf.data, size);
+        buf.data = nullptr;
+        buf.size = 0;
+        close(fd);
+        return false;
+    }
+
     buf.wl_buf = wl_shm_pool_create_buffer(pool, 0, m_width, m_height, stride, WL_SHM_FORMAT_ARGB8888);
     wl_shm_pool_destroy(pool);
     close(fd);
+
+    if (!buf.wl_buf) {
+        munmap(buf.data, size);
+        buf.data = nullptr;
+        buf.size = 0;
+        return false;
+    }
 
     buf.cairo_surf = cairo_image_surface_create_for_data(
         static_cast<unsigned char*>(buf.data),
@@ -98,7 +113,16 @@ bool ShmPool::create_buffer(Buffer& buf) {
         stride
     );
 
+    if (!buf.cairo_surf || cairo_surface_status(buf.cairo_surf) != CAIRO_STATUS_SUCCESS) {
+        destroy_buffer(buf);
+        return false;
+    }
+
     buf.cr = cairo_create(buf.cairo_surf);
+    if (!buf.cr || cairo_status(buf.cr) != CAIRO_STATUS_SUCCESS) {
+        destroy_buffer(buf);
+        return false;
+    }
     buf.busy = false;
 
     wl_buffer_add_listener(buf.wl_buf, &s_buffer_listener, &buf);

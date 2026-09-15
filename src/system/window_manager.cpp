@@ -6,24 +6,25 @@
 
 namespace miqu {
 
-static WindowManager* s_window_manager = nullptr;
-
 WindowManager* WindowManager::get() {
-    if (!s_window_manager) {
-        s_window_manager = new WindowManager();
-        auto* engine = AppEngine::instance();
-        if (engine && engine->get_foreign_toplevel_manager()) {
-            s_window_manager->init_protocol(engine->get_foreign_toplevel_manager());
+    static WindowManager s_instance;
+    return &s_instance;
+}
+
+void WindowManager::clear() {
+    for (auto& win : m_windows) {
+        if (win && win->handle) {
+            zwlr_foreign_toplevel_handle_v1_destroy(win->handle);
+            win->handle = nullptr;
         }
     }
-    return s_window_manager;
+    m_windows.clear();
+    m_listeners.clear();
+    m_manager = nullptr;
 }
 
 WindowManager::~WindowManager() {
-    m_windows.clear();
-    if (s_window_manager == this) {
-        s_window_manager = nullptr;
-    }
+    clear();
 }
 
 void WindowInfo::activate() {

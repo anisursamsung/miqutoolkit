@@ -6,24 +6,25 @@
 
 namespace miqu {
 
-static WorkspaceManager* s_workspace_manager = nullptr;
-
 WorkspaceManager* WorkspaceManager::get() {
-    if (!s_workspace_manager) {
-        s_workspace_manager = new WorkspaceManager();
-        auto* engine = AppEngine::instance();
-        if (engine && engine->get_workspace_manager_protocol()) {
-            s_workspace_manager->init_protocol(engine->get_workspace_manager_protocol());
+    static WorkspaceManager s_instance;
+    return &s_instance;
+}
+
+void WorkspaceManager::clear() {
+    for (auto& ws : m_workspaces) {
+        if (ws && ws->handle) {
+            ext_workspace_handle_v1_destroy(ws->handle);
+            ws->handle = nullptr;
         }
     }
-    return s_workspace_manager;
+    m_workspaces.clear();
+    m_listeners.clear();
+    m_manager = nullptr;
 }
 
 WorkspaceManager::~WorkspaceManager() {
-    m_workspaces.clear();
-    if (s_workspace_manager == this) {
-        s_workspace_manager = nullptr;
-    }
+    clear();
 }
 
 void WorkspaceInfo::activate() {

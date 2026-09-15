@@ -45,6 +45,7 @@ public:
     bool is_supported() const { return m_manager != nullptr; }
 
     void init_protocol(struct ext_workspace_manager_v1* mgr);
+    void clear();
 
 private:
     friend struct WorkspaceInfo;

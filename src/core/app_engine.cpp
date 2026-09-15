@@ -6,6 +6,7 @@
 #include "miqutoolkit/system/workspace_manager.hpp"
 #include "miqutoolkit/system/output_manager.hpp"
 #include "miqutoolkit/system/idle_manager.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include <iostream>
 #include <cstring>
 #include <algorithm>
@@ -109,6 +110,9 @@ AppEngine::~AppEngine() {
     }
     IdleManager::get()->clear_listeners();
     OutputManager::get()->clear();
+    WindowManager::get()->clear();
+    WorkspaceManager::get()->clear();
+    ImageView::clear_cache();
     if (m_session_lock_manager) ext_session_lock_manager_v1_destroy(m_session_lock_manager);
     if (m_idle_notifier) ext_idle_notifier_v1_destroy(m_idle_notifier);
     if (m_ext_workspace_manager) ext_workspace_manager_v1_destroy(m_ext_workspace_manager);

@@ -11,6 +11,9 @@
 #include <vector>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
+#include <list>
+#include "miqutoolkit/core/string_utils.hpp"
 #include <mutex>
 #include <algorithm>
 #include <iostream>
@@ -21,32 +24,31 @@ namespace miqu {
 
 namespace fs = std::filesystem;
 
+static constexpr size_t MAX_SURFACE_CACHE_ENTRIES = 64;
 static std::mutex s_cache_mutex;
-static std::map<std::string, cairo_surface_t*> s_surface_cache;
-static std::map<std::string, std::string> s_path_cache;
+static std::list<std::pair<std::string, cairo_surface_t*>> s_surface_lru;
+static std::unordered_map<std::string, std::list<std::pair<std::string, cairo_surface_t*>>::iterator> s_surface_cache;
+static std::unordered_map<std::string, std::string> s_path_cache;
 
 static std::mutex s_pending_mutex;
 static std::unordered_set<std::string> s_pending_thumbnails;
 
 static std::string trim_str(const std::string& str) {
-    size_t first = str.find_first_not_of(" \t\r\n\"'");
-    if (first == std::string::npos) return "";
-    size_t last = str.find_last_not_of(" \t\r\n\"'");
-    return str.substr(first, (last - first + 1));
+    return StringUtils::trim(str, " \t\r\n\"'");
 }
 
 static std::string str_to_lower(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-    return s;
+    return StringUtils::to_lower(std::move(s));
 }
 
 void ImageView::clear_cache() {
     std::lock_guard<std::mutex> lock(s_cache_mutex);
-    for (auto& pair : s_surface_cache) {
-        if (pair.second) {
-            cairo_surface_destroy(pair.second);
+    for (auto& item : s_surface_lru) {
+        if (item.second) {
+            cairo_surface_destroy(item.second);
         }
     }
+    s_surface_lru.clear();
     s_surface_cache.clear();
     s_path_cache.clear();
 }
@@ -595,8 +597,9 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
     {
         std::lock_guard<std::mutex> lock(s_cache_mutex);
         auto it = s_surface_cache.find(cache_key);
-        if (it != s_surface_cache.end() && it->second != nullptr) {
-            return it->second;
+        if (it != s_surface_cache.end()) {
+            s_surface_lru.splice(s_surface_lru.begin(), s_surface_lru, it->second);
+            return it->second->second;
         }
     }
 
@@ -612,7 +615,24 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
 
     if (surf) {
         std::lock_guard<std::mutex> lock(s_cache_mutex);
-        s_surface_cache[cache_key] = surf;
+        auto it = s_surface_cache.find(cache_key);
+        if (it != s_surface_cache.end()) {
+            cairo_surface_destroy(surf);
+            s_surface_lru.splice(s_surface_lru.begin(), s_surface_lru, it->second);
+            return it->second->second;
+        }
+
+        if (s_surface_cache.size() >= MAX_SURFACE_CACHE_ENTRIES && !s_surface_lru.empty()) {
+            auto oldest = s_surface_lru.back();
+            s_surface_lru.pop_back();
+            s_surface_cache.erase(oldest.first);
+            if (oldest.second) {
+                cairo_surface_destroy(oldest.second);
+            }
+        }
+
+        s_surface_lru.push_front({cache_key, surf});
+        s_surface_cache[cache_key] = s_surface_lru.begin();
     }
     return surf;
 }

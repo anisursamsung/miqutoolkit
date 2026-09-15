@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <unistd.h>
 #include <cstdlib>
+#include <sys/wait.h>
 
 namespace miqu {
 
@@ -250,8 +251,14 @@ void AppManager::launch_command(const std::string& cmd, bool terminal) {
     pid_t pid = fork();
     if (pid == 0) {
         setsid();
-        execl("/bin/sh", "sh", "-c", full_cmd.c_str(), nullptr);
-        _exit(1);
+        pid_t grand_child = fork();
+        if (grand_child == 0) {
+            execl("/bin/sh", "sh", "-c", full_cmd.c_str(), nullptr);
+            _exit(1);
+        }
+        _exit(0);
+    } else if (pid > 0) {
+        waitpid(pid, nullptr, 0);
     }
 }
 

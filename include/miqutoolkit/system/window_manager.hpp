@@ -49,6 +49,7 @@ public:
     bool is_supported() const { return m_manager != nullptr; }
 
     void init_protocol(struct zwlr_foreign_toplevel_manager_v1* mgr);
+    void clear();
 
 private:
     friend struct WindowInfo;
