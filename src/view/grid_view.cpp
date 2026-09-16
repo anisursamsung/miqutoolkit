@@ -257,7 +257,7 @@ bool GridView::on_scroll(double delta) {
     double max_scroll = std::max(0.0, content_h - m_last_height);
 
     double old_scroll = m_scroll_y;
-    m_scroll_y = std::clamp(m_scroll_y + delta * 30.0, 0.0, max_scroll);
+    m_scroll_y = std::clamp(m_scroll_y + delta * 1.5, 0.0, max_scroll);
 
     if (m_scroll_y != old_scroll) {
         if (get_window()) {

@@ -42,11 +42,12 @@ void TabBar::set_selected_index(int index) {
     }
 }
 
-int TabBar::get_tab_index_at(int lx, const Rect& bounds) const {
-    if (m_tabs.empty() || bounds.width <= 0) return -1;
+int TabBar::get_tab_index_at(int lx, int ly, const Rect& bounds) const {
+    if (m_tabs.empty() || bounds.width <= 0 || bounds.height <= 0) return -1;
+    if (!bounds.contains(Point(lx, ly))) return -1;
 
     Rect content_rect = get_content_rect(bounds);
-    if (lx < content_rect.x || lx >= content_rect.x + content_rect.width) return -1;
+    if (!content_rect.contains(Point(lx, ly))) return -1;
 
     if (m_equal_widths) {
         int tab_w = content_rect.width / static_cast<int>(m_tabs.size());
@@ -189,26 +190,38 @@ bool TabBar::on_mouse_move(int lx, int ly, const Rect& bounds) {
 
     int old_hover = m_hovered_index;
     if (bounds.contains(Point(lx, ly))) {
-        m_hovered_index = get_tab_index_at(lx, bounds);
+        m_hovered_index = get_tab_index_at(lx, ly, bounds);
     } else {
         m_hovered_index = -1;
     }
 
     if (old_hover != m_hovered_index) {
         if (m_window) m_window->schedule_redraw();
-        return true;
     }
-    return false;
+    return bounds.contains(Point(lx, ly));
 }
 
 bool TabBar::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (button != MouseButton::Left || !is_visible() || m_tabs.empty()) return false;
 
+    bool contains = bounds.contains(Point(lx, ly));
     if (pressed) {
-        if (!bounds.contains(Point(lx, ly))) return false;
-        int idx = get_tab_index_at(lx, bounds);
-        if (idx >= 0 && idx < static_cast<int>(m_tabs.size())) {
-            set_selected_index(idx);
+        if (!contains) return false;
+        m_pressed_index = get_tab_index_at(lx, ly, bounds);
+        if (m_window) m_window->schedule_redraw();
+        return true;
+    } else {
+        int pressed_idx = m_pressed_index;
+        m_pressed_index = -1;
+        if (pressed_idx >= 0) {
+            int release_idx = get_tab_index_at(lx, ly, bounds);
+            if (release_idx >= 0 && release_idx == pressed_idx) {
+                set_selected_index(release_idx);
+            }
+            if (m_window) m_window->schedule_redraw();
+            return true;
+        }
+        if (contains) {
             return true;
         }
     }

@@ -11,7 +11,11 @@ public:
     Slider() = default;
 
     void set_value(float value) {
-        m_value = std::clamp(value, 0.0f, 1.0f);
+        float clamped = std::clamp(value, 0.0f, 1.0f);
+        if (std::abs(m_value - clamped) > 0.0001f) {
+            m_value = clamped;
+            request_redraw();
+        }
     }
     float get_value() const { return m_value; }
 
@@ -19,14 +23,14 @@ public:
     void set_progress(float p) { set_value(p); }
     float get_progress() const { return get_value(); }
 
-    void set_track_color(const Color& col) { m_track_color = col; m_custom_track = true; }
-    void set_progress_color(const Color& col) { m_progress_color = col; m_custom_progress = true; }
-    void set_thumb_color(const Color& col) { m_thumb_color = col; m_custom_thumb = true; }
+    void set_track_color(const Color& col) { m_track_color = col; m_custom_track = true; request_redraw(); }
+    void set_progress_color(const Color& col) { m_progress_color = col; m_custom_progress = true; request_redraw(); }
+    void set_thumb_color(const Color& col) { m_thumb_color = col; m_custom_thumb = true; request_redraw(); }
 
-    void set_track_height(int height) { m_track_height = std::max(1, height); }
+    void set_track_height(int height) { m_track_height = std::max(1, height); request_redraw(); }
     int get_track_height() const { return m_track_height; }
 
-    void set_thumb_radius(int radius) { m_thumb_radius = std::max(0, radius); }
+    void set_thumb_radius(int radius) { m_thumb_radius = std::max(0, radius); request_redraw(); }
     int get_thumb_radius() const { return m_thumb_radius; }
 
     void set_on_value_changed_listener(std::function<void(float value, bool from_user)> listener) {

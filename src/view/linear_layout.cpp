@@ -180,6 +180,12 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
     // Second pass: Allocate and draw
     int current_cursor = 0;
 
+    double clip_x1 = 0, clip_y1 = 0, clip_x2 = 0, clip_y2 = 0;
+    bool has_clip = (cr != nullptr);
+    if (has_clip) {
+        cairo_clip_extents(cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
+    }
+
     for (const auto& child : m_children) {
         if (!child || child->get_visibility() == Visibility::Gone) continue;
 
@@ -190,8 +196,11 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
         int child_h = 0;
 
         if (m_orientation == Orientation::Horizontal) {
+            int child_avail_w = std::max(0, avail_w - margin.left - margin.right);
             if (params.weight > 0.0f && total_weight > 0.0f) {
                 child_w = static_cast<int>((params.weight / total_weight) * remaining_space);
+            } else if (params.width == static_cast<int>(LayoutDimension::MatchParent)) {
+                child_w = child_avail_w;
             } else if (params.width >= 0) {
                 child_w = params.width;
             } else {
@@ -199,7 +208,7 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
                 if (measured.width > 0) {
                     child_w = measured.width;
                 } else {
-                    child_w = std::max(0, avail_w - margin.left - margin.right);
+                    child_w = child_avail_w;
                 }
             }
 
@@ -228,22 +237,30 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
 
             Rect child_bounds(child_x, child_y, child_w, child_h);
             m_child_entries.push_back({child, child_bounds});
-            child->draw(cr, child_bounds);
+
+            if (!has_clip || (clip_x2 <= clip_x1) ||
+                (child_x + child_w >= clip_x1 && child_x <= clip_x2 &&
+                 child_y + child_h >= clip_y1 && child_y <= clip_y2)) {
+                child->draw(cr, child_bounds);
+            }
 
             current_cursor += child_w + margin.left + margin.right + m_spacing;
         } else {
             // Vertical Orientation
             int child_avail_w = std::max(0, avail_w - margin.left - margin.right);
+            int child_avail_h = std::max(0, avail_h - margin.top - margin.bottom);
             Size measured = child->measure_size(child_avail_w);
 
             if (params.weight > 0.0f && total_weight > 0.0f) {
                 child_h = static_cast<int>((params.weight / total_weight) * remaining_space);
+            } else if (params.height == static_cast<int>(LayoutDimension::MatchParent)) {
+                child_h = child_avail_h;
             } else if (params.height >= 0) {
                 child_h = params.height;
             } else if (measured.height > 0) {
                 child_h = measured.height;
             } else {
-                child_h = std::max(0, avail_h - margin.top - margin.bottom);
+                child_h = child_avail_h;
             }
 
             if (params.width == static_cast<int>(LayoutDimension::MatchParent)) {
@@ -268,7 +285,12 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
 
             Rect child_bounds(child_x, child_y, child_w, child_h);
             m_child_entries.push_back({child, child_bounds});
-            child->draw(cr, child_bounds);
+
+            if (!has_clip || (clip_y2 <= clip_y1) ||
+                (child_x + child_w >= clip_x1 && child_x <= clip_x2 &&
+                 child_y + child_h >= clip_y1 && child_y <= clip_y2)) {
+                child->draw(cr, child_bounds);
+            }
 
             current_cursor += child_h + margin.top + margin.bottom + m_spacing;
         }

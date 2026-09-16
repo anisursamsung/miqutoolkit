@@ -50,6 +50,7 @@ private:
     std::vector<std::string> m_tabs;
     int m_selected_index = 0;
     int m_hovered_index = -1;
+    int m_pressed_index = -1;
     TabBarStyle m_style = TabBarStyle::Segmented;
     bool m_equal_widths = true;
     int m_font_size = -1;
@@ -58,7 +59,7 @@ private:
 
     std::function<void(int)> m_on_tab_selected;
 
-    int get_tab_index_at(int lx, const Rect& bounds) const;
+    int get_tab_index_at(int lx, int ly, const Rect& bounds) const;
 };
 
 class TabBarBuilder : public std::enable_shared_from_this<TabBarBuilder> {

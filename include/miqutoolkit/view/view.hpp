@@ -84,6 +84,7 @@ public:
     // Window Reference
     virtual void set_window(Window* win) { m_window = win; }
     Window* get_window() const { return m_window; }
+    void request_redraw();
 
 protected:
     Rect m_bounds;

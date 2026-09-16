@@ -37,26 +37,31 @@ public:
     TextView() = default;
     explicit TextView(std::string text) : m_text(std::move(text)) {}
 
-    void set_text(std::string text) { m_text = std::move(text); }
+    void set_text(std::string text) {
+        if (m_text != text) {
+            m_text = std::move(text);
+            request_redraw();
+        }
+    }
     const std::string& get_text() const { return m_text; }
 
-    void set_text_color(const Color& color) { m_color = color; m_has_custom_color = true; }
+    void set_text_color(const Color& color) { m_color = color; m_has_custom_color = true; request_redraw(); }
     const Color& get_text_color() const { return m_color; }
     bool has_custom_color() const { return m_has_custom_color; }
 
-    void set_font_family(std::string family) { m_font_family = std::move(family); }
+    void set_font_family(std::string family) { m_font_family = std::move(family); request_redraw(); }
     const std::string& get_font_family() const { return m_font_family; }
 
-    void set_text_size(int size) { m_font_size = size; }
+    void set_text_size(int size) { m_font_size = size; request_redraw(); }
     int get_text_size() const { return m_font_size; }
 
-    void set_bold(bool bold) { m_bold = bold; }
+    void set_bold(bool bold) { m_bold = bold; request_redraw(); }
     bool is_bold() const { return m_bold; }
 
-    void set_italic(bool italic) { m_italic = italic; }
+    void set_italic(bool italic) { m_italic = italic; request_redraw(); }
     bool is_italic() const { return m_italic; }
 
-    void set_heading_level(int level) { m_heading_level = level; }
+    void set_heading_level(int level) { m_heading_level = level; request_redraw(); }
     int get_heading_level() const { return m_heading_level; }
 
     void set_caption(bool c) { m_caption = c; }

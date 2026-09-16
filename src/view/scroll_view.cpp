@@ -123,10 +123,10 @@ bool ScrollView::on_mouse_move(int lx, int ly, const Rect& bounds) {
     Rect content_rect = get_content_rect(bounds);
     if (content_rect.contains(Point(lx, ly)) && m_content && m_content->is_visible()) {
         if (!m_child_entries.empty()) {
-            return m_content->on_mouse_move(lx, ly, m_child_entries[0].allocated_bounds);
+            m_content->on_mouse_move(lx, ly, m_child_entries[0].allocated_bounds);
         }
     }
-    return false;
+    return m_is_hovered;
 }
 
 bool ScrollView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
@@ -166,10 +166,10 @@ bool ScrollView::on_mouse_button(int lx, int ly, MouseButton button, bool presse
 }
 
 bool ScrollView::on_scroll(double delta) {
-    if (!is_visible() || !m_is_hovered || m_max_scroll <= 0.0) return false;
+    if (!is_visible() || m_max_scroll <= 0.0) return false;
 
     double old_scroll = m_scroll_y;
-    m_scroll_y = std::clamp(m_scroll_y + delta * 28.0, 0.0, m_max_scroll);
+    m_scroll_y = std::clamp(m_scroll_y + delta * 2.2, 0.0, m_max_scroll);
 
     if (m_scroll_y != old_scroll) {
         if (m_window) m_window->schedule_redraw();

@@ -49,8 +49,14 @@ void ViewPager::draw(cairo_t* cr, const Rect& bounds) {
     if (m_current_page >= 0 && m_current_page < static_cast<int>(m_pages.size())) {
         auto& active_page = m_pages[m_current_page];
         if (active_page && active_page->is_visible() && content_rect.width > 0 && content_rect.height > 0) {
+            cairo_save(cr);
+            cairo_rectangle(cr, content_rect.x, content_rect.y, content_rect.width, content_rect.height);
+            cairo_clip(cr);
+
             m_child_entries.push_back({active_page, content_rect});
             active_page->draw(cr, content_rect);
+
+            cairo_restore(cr);
         }
     }
 
@@ -72,7 +78,7 @@ bool ViewPager::on_mouse_move(int lx, int ly, const Rect& bounds) {
 bool ViewPager::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (!is_visible()) return false;
     Rect content_rect = get_content_rect(bounds);
-    if (pressed && !content_rect.contains(Point(lx, ly))) return false;
+    if (!content_rect.contains(Point(lx, ly))) return false;
 
     if (m_current_page >= 0 && m_current_page < static_cast<int>(m_pages.size())) {
         auto& active_page = m_pages[m_current_page];

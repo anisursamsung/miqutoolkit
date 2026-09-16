@@ -1,4 +1,5 @@
 #include "miqutoolkit/view/view_group.hpp"
+#include "miqutoolkit/core/window.hpp"
 #include <cmath>
 #include <algorithm>
 
@@ -7,6 +8,12 @@
 #endif
 
 namespace miqu {
+
+void View::request_redraw() {
+    if (m_window) {
+        m_window->schedule_redraw();
+    }
+}
 
 void ViewGroup::draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r) {
     if (r <= 0.0) {
@@ -99,7 +106,7 @@ bool ViewGroup::on_mouse_button(int lx, int ly, MouseButton button, bool pressed
     // Traverse top-to-bottom (reverse order)
     for (auto it = m_child_entries.rbegin(); it != m_child_entries.rend(); ++it) {
         if (it->view && it->view->is_visible()) {
-            if (pressed && !it->allocated_bounds.contains(Point(lx, ly))) {
+            if (!it->allocated_bounds.contains(Point(lx, ly))) {
                 continue;
             }
             if (it->view->on_mouse_button(lx, ly, button, pressed, it->allocated_bounds)) {
@@ -108,12 +115,19 @@ bool ViewGroup::on_mouse_button(int lx, int ly, MouseButton button, bool pressed
         }
     }
 
-    if (button == MouseButton::Left && bounds.contains(lx, ly)) {
-        if (!pressed && m_on_click) {
+    if (m_on_click && button == MouseButton::Left && bounds.contains(Point(lx, ly))) {
+        if (pressed) {
+            m_pressed = true;
+            return true;
+        } else if (m_pressed) {
+            m_pressed = false;
             m_on_click();
             return true;
         }
-        return (m_on_click != nullptr);
+    }
+
+    if (!pressed) {
+        m_pressed = false;
     }
 
     return false;

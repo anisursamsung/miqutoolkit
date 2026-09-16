@@ -40,9 +40,9 @@ void BottomNavigationView::set_selected_index(int index) {
     }
 }
 
-int BottomNavigationView::get_item_index_at(int lx, const Rect& bounds) const {
-    if (m_items.empty() || bounds.width <= 0) return -1;
-    if (lx < bounds.x || lx >= bounds.x + bounds.width) return -1;
+int BottomNavigationView::get_item_index_at(int lx, int ly, const Rect& bounds) const {
+    if (m_items.empty() || bounds.width <= 0 || bounds.height <= 0) return -1;
+    if (!bounds.contains(Point(lx, ly))) return -1;
 
     int item_w = bounds.width / static_cast<int>(m_items.size());
     if (item_w <= 0) return -1;
@@ -212,21 +212,42 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
 }
 
 bool BottomNavigationView::on_mouse_move(int lx, int ly, const Rect& bounds) {
-    (void)ly;
+    if (!is_visible() || m_items.empty()) return false;
+
     int prev = m_hovered_index;
-    m_hovered_index = get_item_index_at(lx, bounds);
+    if (bounds.contains(Point(lx, ly))) {
+        m_hovered_index = get_item_index_at(lx, ly, bounds);
+    } else {
+        m_hovered_index = -1;
+    }
+
     if (prev != m_hovered_index) {
         if (m_window) m_window->schedule_redraw();
     }
-    return true;
+    return bounds.contains(Point(lx, ly));
 }
 
 bool BottomNavigationView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
-    (void)ly;
-    if (button == MouseButton::Left && pressed) {
-        int idx = get_item_index_at(lx, bounds);
-        if (idx >= 0) {
-            set_selected_index(idx);
+    if (button != MouseButton::Left || !is_visible() || m_items.empty()) return false;
+
+    bool contains = bounds.contains(Point(lx, ly));
+    if (pressed) {
+        if (!contains) return false;
+        m_pressed_index = get_item_index_at(lx, ly, bounds);
+        if (m_window) m_window->schedule_redraw();
+        return true;
+    } else {
+        int pressed_idx = m_pressed_index;
+        m_pressed_index = -1;
+        if (pressed_idx >= 0) {
+            int release_idx = get_item_index_at(lx, ly, bounds);
+            if (release_idx >= 0 && release_idx == pressed_idx) {
+                set_selected_index(release_idx);
+            }
+            if (m_window) m_window->schedule_redraw();
+            return true;
+        }
+        if (contains) {
             return true;
         }
     }

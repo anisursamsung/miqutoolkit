@@ -53,6 +53,7 @@ private:
     std::vector<BottomNavItem> m_items;
     int m_selected_index = 0;
     int m_hovered_index = -1;
+    int m_pressed_index = -1;
     bool m_show_divider = true;
     int m_bar_height = 58;
     int m_pill_w = 54;
@@ -60,7 +61,7 @@ private:
 
     std::function<void(int)> m_on_item_selected;
 
-    int get_item_index_at(int lx, const Rect& bounds) const;
+    int get_item_index_at(int lx, int ly, const Rect& bounds) const;
 };
 
 class BottomNavigationViewBuilder : public std::enable_shared_from_this<BottomNavigationViewBuilder> {

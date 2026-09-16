@@ -15,32 +15,37 @@ public:
     ProgressBar() = default;
 
     void set_progress(float progress) {
-        m_progress = std::clamp(progress, 0.0f, 1.0f);
+        float clamped = std::clamp(progress, 0.0f, 1.0f);
+        if (std::abs(m_progress - clamped) > 0.0001f) {
+            m_progress = clamped;
+            request_redraw();
+        }
     }
     float get_progress() const { return m_progress; }
 
     void set_indeterminate(bool indeterminate);
     bool is_indeterminate() const { return m_indeterminate; }
 
-    void set_style(ProgressBarStyle style) { m_style = style; }
+    void set_style(ProgressBarStyle style) { m_style = style; request_redraw(); }
     ProgressBarStyle get_style() const { return m_style; }
 
     void set_circular(bool circular) {
         m_style = circular ? ProgressBarStyle::Circular : ProgressBarStyle::Linear;
+        request_redraw();
     }
     bool is_circular() const { return m_style == ProgressBarStyle::Circular; }
 
-    void set_track_height(int h) { m_track_height = std::max(1, h); }
+    void set_track_height(int h) { m_track_height = std::max(1, h); request_redraw(); }
     int get_track_height() const { return m_track_height; }
 
-    void set_stroke_width(int w) { m_track_height = std::max(1, w); }
+    void set_stroke_width(int w) { m_track_height = std::max(1, w); request_redraw(); }
     int get_stroke_width() const { return m_track_height; }
 
-    void set_corner_radius(int r) { m_corner_radius = r; }
+    void set_corner_radius(int r) { m_corner_radius = r; request_redraw(); }
     int get_corner_radius() const { return m_corner_radius; }
 
-    void set_track_color(const Color& col) { m_track_color = col; m_has_custom_track = true; }
-    void set_progress_color(const Color& col) { m_progress_color = col; m_has_custom_progress = true; }
+    void set_track_color(const Color& col) { m_track_color = col; m_has_custom_track = true; request_redraw(); }
+    void set_progress_color(const Color& col) { m_progress_color = col; m_has_custom_progress = true; request_redraw(); }
 
     const Color& get_track_color() const { return m_track_color; }
     const Color& get_progress_color() const { return m_progress_color; }

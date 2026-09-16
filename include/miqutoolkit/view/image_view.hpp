@@ -23,38 +23,44 @@ public:
     ImageView() = default;
     explicit ImageView(std::string source) : m_source(std::move(source)) {}
 
-    void set_image_resource(std::string source) { m_source = std::move(source); }
+    void set_image_resource(std::string source) {
+        if (m_source != source) {
+            m_source = std::move(source);
+            request_redraw();
+        }
+    }
     const std::string& get_image_resource() const { return m_source; }
 
-    void set_target_size(int size) { m_target_size = size; }
+    void set_target_size(int size) { m_target_size = size; request_redraw(); }
     int get_target_size() const { return m_target_size; }
 
-    void set_fit_mode(FitMode mode) { m_fit_mode = mode; }
+    void set_fit_mode(FitMode mode) { m_fit_mode = mode; request_redraw(); }
     FitMode get_fit_mode() const { return m_fit_mode; }
 
-    void set_quality_mode(ImageQuality quality) { m_quality = quality; }
+    void set_quality_mode(ImageQuality quality) { m_quality = quality; request_redraw(); }
     ImageQuality get_quality_mode() const { return m_quality; }
 
-    void set_corner_radius(int radius) { m_corner_radius = radius; }
+    void set_corner_radius(int radius) { m_corner_radius = radius; request_redraw(); }
     int get_corner_radius() const { return m_corner_radius; }
 
-    void set_circle(bool circle) { m_circle = circle; }
+    void set_circle(bool circle) { m_circle = circle; request_redraw(); }
     bool is_circle() const { return m_circle; }
 
     void set_border(int width, const Color& color) {
         m_border_width = std::max(0, width);
         m_border_color = color;
+        request_redraw();
     }
     int get_border_width() const { return m_border_width; }
     const Color& get_border_color() const { return m_border_color; }
 
-    void set_rotation_angle(double degrees) { m_rotation_degrees = degrees; }
+    void set_rotation_angle(double degrees) { m_rotation_degrees = degrees; request_redraw(); }
     double get_rotation_angle() const { return m_rotation_degrees; }
 
-    void set_alpha(float opacity) { m_opacity = opacity; }
+    void set_alpha(float opacity) { m_opacity = opacity; request_redraw(); }
     float get_alpha() const { return m_opacity; }
 
-    void set_background_color(const Color& color) { m_bg_color = color; }
+    void set_background_color(const Color& color) { m_bg_color = color; request_redraw(); }
     const Color& get_background_color() const { return m_bg_color; }
 
     void draw(cairo_t* cr, const Rect& bounds) override;

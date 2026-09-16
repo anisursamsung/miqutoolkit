@@ -60,6 +60,7 @@ protected:
     int m_stroke_width = 0;
     Color m_stroke_color = Color::transparent();
     int m_corner_radius = 0;
+    bool m_pressed = false;
 };
 
 } // namespace miqu
