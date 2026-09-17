@@ -126,7 +126,10 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
         self->m_last_x = wl_fixed_to_double(sx);
         self->m_last_y = wl_fixed_to_double(sy);
         self->update_cursor(serial);
-        if (self->m_root_view) {
+        if (self->m_popup_view) {
+            self->m_popup_view->on_mouse_move(self->m_last_x, self->m_last_y, self->m_popup_bounds);
+            self->schedule_redraw();
+        } else if (self->m_root_view) {
             self->m_root_view->on_mouse_move(self->m_last_x, self->m_last_y, self->m_allocated_content_bounds);
             self->schedule_redraw();
         }
@@ -136,6 +139,12 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
         auto* self = static_cast<Window*>(data);
         self->m_last_x = wl_fixed_to_double(sx);
         self->m_last_y = wl_fixed_to_double(sy);
+        if (self->m_popup_view) {
+            if (self->m_popup_view->on_mouse_move(self->m_last_x, self->m_last_y, self->m_popup_bounds)) {
+                self->schedule_redraw();
+            }
+            return;
+        }
         if (self->m_root_view) {
             if (self->m_root_view->on_mouse_move(self->m_last_x, self->m_last_y, self->m_allocated_content_bounds)) {
                 self->schedule_redraw();
@@ -152,6 +161,17 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
 
         bool pressed = (state == WL_POINTER_BUTTON_STATE_PRESSED);
 
+        if (self->m_popup_view) {
+            if (pressed && !self->m_popup_bounds.contains(self->m_last_x, self->m_last_y)) {
+                self->dismiss_popup();
+                return;
+            }
+            if (self->m_popup_view->on_mouse_button(self->m_last_x, self->m_last_y, mb, pressed, self->m_popup_bounds)) {
+                self->schedule_redraw();
+            }
+            return;
+        }
+
         if (pressed && self->m_close_on_click_outside && !self->m_allocated_content_bounds.contains(self->m_last_x, self->m_last_y)) {
             if (self->m_on_close) self->m_on_close();
             self->close();
@@ -166,10 +186,18 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
     },
     .axis = [](void* data, struct wl_pointer*, uint32_t time, uint32_t axis, wl_fixed_t value) {
         auto* self = static_cast<Window*>(data);
-        if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL && self->m_root_view) {
+        if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
             double delta = wl_fixed_to_double(value);
-            if (self->m_root_view->on_scroll(delta)) {
-                self->schedule_redraw();
+            if (self->m_popup_view) {
+                if (self->m_popup_view->on_scroll(delta)) {
+                    self->schedule_redraw();
+                }
+                return;
+            }
+            if (self->m_root_view) {
+                if (self->m_root_view->on_scroll(delta)) {
+                    self->schedule_redraw();
+                }
             }
         }
     },
@@ -238,12 +266,6 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
         xkb_keysym_t sym = xkb_state_key_get_one_sym(self->m_xkb_state, keycode);
         bool pressed = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
 
-        if (pressed && self->m_close_on_escape && sym == XKB_KEY_Escape) {
-            if (self->m_on_close) self->m_on_close();
-            self->close();
-            return;
-        }
-
         char utf8_buf[64] = {0};
         xkb_state_key_get_utf8(self->m_xkb_state, keycode, utf8_buf, sizeof(utf8_buf));
 
@@ -253,6 +275,23 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
         event.utf8_text = utf8_buf;
         event.pressed = pressed;
         event.modifiers = self->m_modifiers;
+
+        if (self->m_popup_view) {
+            if (self->m_popup_view->on_key(event)) {
+                self->schedule_redraw();
+                return;
+            }
+            if (pressed && sym == XKB_KEY_Escape) {
+                self->dismiss_popup();
+                return;
+            }
+        }
+
+        if (pressed && self->m_close_on_escape && sym == XKB_KEY_Escape) {
+            if (self->m_on_close) self->m_on_close();
+            self->close();
+            return;
+        }
 
         if (self->m_on_key) {
             self->m_on_key(event);
@@ -531,6 +570,11 @@ void Window::render_frame() {
         }
     }
 
+    // 3. Draw Active Popup Overlay on top of scene
+    if (m_popup_view && m_popup_view->is_visible()) {
+        m_popup_view->draw(buf->cr, m_popup_bounds);
+    }
+
     cairo_surface_flush(buf->cairo_surf);
     buf->busy = true;
 
@@ -543,6 +587,23 @@ void Window::render_frame() {
     wl_surface_commit(m_surface);
     wl_display_flush(AppEngine::instance()->get_display());
     m_rendering = false;
+}
+
+void Window::show_popup(std::shared_ptr<View> popup, const Rect& bounds) {
+    m_popup_view = popup;
+    m_popup_bounds = bounds;
+    if (m_popup_view) {
+        m_popup_view->set_window(this);
+        m_popup_view->set_bounds(bounds);
+    }
+    schedule_redraw();
+}
+
+void Window::dismiss_popup() {
+    if (m_popup_view) {
+        m_popup_view = nullptr;
+        schedule_redraw();
+    }
 }
 
 void Window::close() {

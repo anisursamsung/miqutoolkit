@@ -130,6 +130,7 @@ add_library(miqutoolkit SHARED
     src/view/switch.cpp
     src/view/toolbar.cpp
     src/view/bottom_navigation_view.cpp
+    src/view/spinner.cpp
     src/system/window_manager.cpp
     src/system/workspace_manager.cpp
     src/system/output_manager.cpp

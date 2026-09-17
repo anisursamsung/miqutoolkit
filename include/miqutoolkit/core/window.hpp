@@ -96,7 +96,12 @@ public:
 
     int get_width() const { return m_width; }
     int get_height() const { return m_height; }
-    const Rect& get_allocated_content_bounds() const { return m_allocated_content_bounds; }
+    // Popup overlay support
+    void show_popup(std::shared_ptr<View> popup, const Rect& bounds);
+    void dismiss_popup();
+    bool has_popup() const { return m_popup_view != nullptr; }
+    std::shared_ptr<View> get_popup() const { return m_popup_view; }
+    const Rect& get_popup_bounds() const { return m_popup_bounds; }
 
     void update_seat_capabilities(uint32_t caps);
 
@@ -158,6 +163,8 @@ private:
 
     std::unique_ptr<ShmPool> m_shm_pool;
     std::shared_ptr<View> m_root_view;
+    std::shared_ptr<View> m_popup_view;
+    Rect m_popup_bounds;
 
     std::function<void()> m_on_close;
     std::function<void(const KeyPressEvent&)> m_on_key;

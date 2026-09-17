@@ -38,6 +38,7 @@
 #include "miqutoolkit/view/switch.hpp"
 #include "miqutoolkit/view/toolbar.hpp"
 #include "miqutoolkit/view/bottom_navigation_view.hpp"
+#include "miqutoolkit/view/spinner.hpp"
 
 // System Services
 #include "miqutoolkit/system/window_manager.hpp"
