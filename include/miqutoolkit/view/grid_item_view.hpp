@@ -7,10 +7,10 @@
 
 namespace miqu {
 
-class TileView : public View {
+class GridItemView : public View {
 public:
-    TileView() = default;
-    TileView(std::string title, std::string icon_source, bool is_image = false);
+    GridItemView() = default;
+    GridItemView(std::string title, std::string icon_source, bool is_image = false);
 
     void set_title(std::string title) { m_title = std::move(title); }
     const std::string& get_title() const { return m_title; }
@@ -45,55 +45,55 @@ private:
     bool m_highlight_subtitle = false;
 };
 
-class TileViewBuilder : public std::enable_shared_from_this<TileViewBuilder> {
+class GridItemViewBuilder : public std::enable_shared_from_this<GridItemViewBuilder> {
 public:
-    static std::shared_ptr<TileViewBuilder> create() {
-        return std::make_shared<TileViewBuilder>();
+    static std::shared_ptr<GridItemViewBuilder> create() {
+        return std::make_shared<GridItemViewBuilder>();
     }
 
-    TileViewBuilder() : m_view(std::make_shared<TileView>()) {}
+    GridItemViewBuilder() : m_view(std::make_shared<GridItemView>()) {}
 
-    std::shared_ptr<TileViewBuilder> title(std::string title) {
+    std::shared_ptr<GridItemViewBuilder> title(std::string title) {
         m_view->set_title(std::move(title));
         return shared_from_this();
     }
 
-    std::shared_ptr<TileViewBuilder> subtitle(std::string sub) {
+    std::shared_ptr<GridItemViewBuilder> subtitle(std::string sub) {
         m_view->set_subtitle(std::move(sub));
         return shared_from_this();
     }
 
-    std::shared_ptr<TileViewBuilder> iconSource(std::string src) {
+    std::shared_ptr<GridItemViewBuilder> iconSource(std::string src) {
         m_view->set_icon_source(std::move(src));
         return shared_from_this();
     }
 
-    std::shared_ptr<TileViewBuilder> isImage(bool is_img) {
+    std::shared_ptr<GridItemViewBuilder> isImage(bool is_img) {
         m_view->set_is_image(is_img);
         return shared_from_this();
     }
 
-    std::shared_ptr<TileViewBuilder> qualityMode(ImageQuality q) {
+    std::shared_ptr<GridItemViewBuilder> qualityMode(ImageQuality q) {
         m_view->set_quality_mode(q);
         return shared_from_this();
     }
 
-    std::shared_ptr<TileViewBuilder> cornerRadius(int r) {
+    std::shared_ptr<GridItemViewBuilder> cornerRadius(int r) {
         m_view->set_corner_radius(r);
         return shared_from_this();
     }
 
-    std::shared_ptr<TileViewBuilder> highlightSubtitle(bool hl) {
+    std::shared_ptr<GridItemViewBuilder> highlightSubtitle(bool hl) {
         m_view->set_highlight_subtitle(hl);
         return shared_from_this();
     }
 
-    std::shared_ptr<TileView> build() {
+    std::shared_ptr<GridItemView> build() {
         return m_view;
     }
 
 private:
-    std::shared_ptr<TileView> m_view;
+    std::shared_ptr<GridItemView> m_view;
 };
 
 } // namespace miqu

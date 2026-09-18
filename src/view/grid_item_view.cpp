@@ -1,14 +1,14 @@
-#include "miqutoolkit/view/tile_view.hpp"
+#include "miqutoolkit/view/grid_item_view.hpp"
 #include "miqutoolkit/core/config.hpp"
 #include <pango/pangocairo.h>
 #include <algorithm>
 
 namespace miqu {
 
-TileView::TileView(std::string title, std::string icon_source, bool is_image)
+GridItemView::GridItemView(std::string title, std::string icon_source, bool is_image)
     : m_title(std::move(title)), m_icon_source(std::move(icon_source)), m_is_image(is_image) {}
 
-void TileView::draw(cairo_t* cr, const Rect& bounds) {
+void GridItemView::draw(cairo_t* cr, const Rect& bounds) {
     if (!cr || bounds.width <= 0 || bounds.height <= 0) return;
 
     auto config = Config::get();
@@ -58,6 +58,7 @@ void TileView::draw(cairo_t* cr, const Rect& bounds) {
         int pad_top = 8;
         int pad_bottom = 6;
         int gap = 6; // Breathing space between thumbnail and title
+
         int img_w = bounds.width - pad_x * 2;
         int img_h = std::max(20, bounds.height - pad_top - gap - title_h - pad_bottom);
 

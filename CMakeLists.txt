@@ -120,7 +120,9 @@ add_library(miqutoolkit SHARED
     src/view/progress_bar.cpp
     src/view/circle_image_view.cpp
     src/view/image_button.cpp
-    src/view/tile_view.cpp
+    src/view/grid_item_view.cpp
+    src/view/list_view.cpp
+    src/view/list_item_view.cpp
     src/view/divider_view.cpp
     src/view/tab_bar.cpp
     src/view/view_pager.cpp
