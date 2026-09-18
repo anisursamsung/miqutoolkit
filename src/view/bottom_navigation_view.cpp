@@ -74,7 +74,7 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
         cairo_set_source_rgba(cr, config->colors.surface_variant.r,
                                   config->colors.surface_variant.g,
                                   config->colors.surface_variant.b,
-                                  0.90f);
+                                  0.92f);
         cairo_fill(cr);
 
         CardView::draw_rounded_rect(cr, bounds.x + 0.5, bounds.y + 0.5, bounds.width - 1.0, bounds.height - 1.0, radius);
@@ -160,7 +160,7 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
             cairo_fill(cr);
         }
 
-        // Icon Rendering (centered inside the pill)
+        // Icon / Emoji Rendering (centered inside the pill)
         if (!item.icon.empty()) {
             std::string resolved_icon = ImageView::resolve_icon_path(item.icon);
             bool is_img = !resolved_icon.empty() || item.icon.starts_with('/') || item.icon.ends_with(".png") || item.icon.ends_with(".svg");
@@ -184,11 +184,12 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
                 pango_layout_set_font_description(icon_layout, icon_desc);
                 pango_font_description_free(icon_desc);
 
-                int icon_w = 0, icon_h = 0;
-                pango_layout_get_pixel_size(icon_layout, &icon_w, &icon_h);
+                PangoRectangle ink_rect, log_rect;
+                pango_layout_get_pixel_extents(icon_layout, &ink_rect, &log_rect);
 
-                double icon_x = px + (pw - icon_w) / 2.0;
-                double icon_y = py + (ph - icon_h) / 2.0;
+                // Exact optical centering: offset by ink_rect origin
+                double icon_x = px + (pw - ink_rect.width) / 2.0 - ink_rect.x;
+                double icon_y = py + (ph - ink_rect.height) / 2.0 - ink_rect.y;
 
                 cairo_move_to(cr, std::round(icon_x), std::round(icon_y));
                 Color icon_fg = is_selected ? config->colors.on_primary_container : config->colors.on_surface_variant;
@@ -198,7 +199,7 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
             }
         }
 
-        // Label Rendering (below the pill)
+        // Label Rendering (below the pill, centered in the item slot)
         if (!item.label.empty()) {
             PangoLayout* label_layout = pango_cairo_create_layout(cr);
             pango_layout_set_text(label_layout, item.label.c_str(), -1);
@@ -212,13 +213,10 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
             pango_layout_set_width(label_layout, iw * PANGO_SCALE);
             pango_layout_set_ellipsize(label_layout, PANGO_ELLIPSIZE_END);
 
-            int text_w = 0, text_h = 0;
-            pango_layout_get_pixel_size(label_layout, &text_w, &text_h);
-
-            double text_x = ix + (iw - text_w) / 2.0;
             double text_y = py + ph + label_gap;
 
-            cairo_move_to(cr, std::round(text_x), std::round(text_y));
+            // Notice: cairo_move_to is at ix (the left bound of the item slot) since PangoLayout width is iw and alignment is CENTER
+            cairo_move_to(cr, ix, std::round(text_y));
             Color label_fg = is_selected ? config->colors.primary : config->colors.on_surface_variant;
             float alpha = is_selected ? 1.0f : 0.75f;
             cairo_set_source_rgba(cr, label_fg.r, label_fg.g, label_fg.b, alpha);
