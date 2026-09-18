@@ -118,7 +118,6 @@ add_library(miqutoolkit SHARED
     src/view/grid_view.cpp
     src/view/slider.cpp
     src/view/progress_bar.cpp
-    src/view/circle_image_view.cpp
     src/view/image_button.cpp
     src/view/grid_item_view.cpp
     src/view/list_view.cpp

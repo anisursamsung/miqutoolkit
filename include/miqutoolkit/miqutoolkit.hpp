@@ -26,7 +26,6 @@
 #include "miqutoolkit/view/grid_view.hpp"
 #include "miqutoolkit/view/slider.hpp"
 #include "miqutoolkit/view/progress_bar.hpp"
-#include "miqutoolkit/view/circle_image_view.hpp"
 #include "miqutoolkit/view/image_button.hpp"
 #include "miqutoolkit/view/grid_item_view.hpp"
 #include "miqutoolkit/view/list_view.hpp"
