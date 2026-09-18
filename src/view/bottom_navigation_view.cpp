@@ -1,5 +1,6 @@
 #include "miqutoolkit/view/bottom_navigation_view.hpp"
 #include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/core/config.hpp"
 #include <pango/pangocairo.h>
 #include <algorithm>
@@ -121,13 +122,20 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
         bool is_selected = (static_cast<int>(i) == m_selected_index);
         bool is_hovered = (static_cast<int>(i) == m_hovered_index);
 
-        // Material 3 Active Pill Indicator
-        int pw = std::min(m_pill_w, std::max(20, iw - 12));
+        // Calculate dynamic vertical centering
         int ph = m_pill_h;
-        int px = ix + (iw - pw) / 2;
-        int py = iy + 5;
+        int pw = std::min(m_pill_w, std::max(20, iw - 10));
         int pill_radius = ph / 2;
 
+        int font_size = config->metrics.caption_size > 0 ? config->metrics.caption_size : 10;
+        int label_gap = (!item.label.empty() && !item.icon.empty()) ? 2 : 0;
+        int est_text_h = !item.label.empty() ? (font_size + 3) : 0;
+        int total_item_h = ph + label_gap + est_text_h;
+
+        int py = iy + std::max(2, (bounds.height - total_item_h) / 2);
+        int px = ix + (iw - pw) / 2;
+
+        // Material 3 Active Pill Indicator
         if (is_selected) {
             CardView::draw_rounded_rect(cr, px, py, pw, ph, pill_radius);
             cairo_set_source_rgba(cr, config->colors.primary_container.r,
@@ -154,25 +162,40 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
 
         // Icon Rendering (centered inside the pill)
         if (!item.icon.empty()) {
-            PangoLayout* icon_layout = pango_cairo_create_layout(cr);
-            pango_layout_set_text(icon_layout, item.icon.c_str(), -1);
+            std::string resolved_icon = ImageView::resolve_icon_path(item.icon);
+            bool is_img = !resolved_icon.empty() || item.icon.starts_with('/') || item.icon.ends_with(".png") || item.icon.ends_with(".svg");
 
-            std::string icon_font = font_family + " 15";
-            PangoFontDescription* icon_desc = pango_font_description_from_string(icon_font.c_str());
-            pango_layout_set_font_description(icon_layout, icon_desc);
-            pango_font_description_free(icon_desc);
+            if (is_img) {
+                int icon_sz = std::min(20, ph - 6);
+                int icon_x = px + (pw - icon_sz) / 2;
+                int icon_y = py + (ph - icon_sz) / 2;
+                Rect icon_rect(icon_x, icon_y, icon_sz, icon_sz);
 
-            int icon_w = 0, icon_h = 0;
-            pango_layout_get_pixel_size(icon_layout, &icon_w, &icon_h);
+                ImageView img_view(!resolved_icon.empty() ? resolved_icon : item.icon);
+                img_view.set_target_size(icon_sz);
+                img_view.set_fit_mode(FitMode::Contain);
+                img_view.draw(cr, icon_rect);
+            } else {
+                PangoLayout* icon_layout = pango_cairo_create_layout(cr);
+                pango_layout_set_text(icon_layout, item.icon.c_str(), -1);
 
-            double icon_x = px + (pw - icon_w) / 2.0;
-            double icon_y = py + (ph - icon_h) / 2.0;
+                std::string icon_font = font_family + " 15";
+                PangoFontDescription* icon_desc = pango_font_description_from_string(icon_font.c_str());
+                pango_layout_set_font_description(icon_layout, icon_desc);
+                pango_font_description_free(icon_desc);
 
-            cairo_move_to(cr, icon_x, icon_y);
-            Color icon_fg = is_selected ? config->colors.on_primary_container : config->colors.on_surface_variant;
-            cairo_set_source_rgba(cr, icon_fg.r, icon_fg.g, icon_fg.b, icon_fg.a);
-            pango_cairo_show_layout(cr, icon_layout);
-            g_object_unref(icon_layout);
+                int icon_w = 0, icon_h = 0;
+                pango_layout_get_pixel_size(icon_layout, &icon_w, &icon_h);
+
+                double icon_x = px + (pw - icon_w) / 2.0;
+                double icon_y = py + (ph - icon_h) / 2.0;
+
+                cairo_move_to(cr, std::round(icon_x), std::round(icon_y));
+                Color icon_fg = is_selected ? config->colors.on_primary_container : config->colors.on_surface_variant;
+                cairo_set_source_rgba(cr, icon_fg.r, icon_fg.g, icon_fg.b, icon_fg.a);
+                pango_cairo_show_layout(cr, icon_layout);
+                g_object_unref(icon_layout);
+            }
         }
 
         // Label Rendering (below the pill)
@@ -180,7 +203,6 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
             PangoLayout* label_layout = pango_cairo_create_layout(cr);
             pango_layout_set_text(label_layout, item.label.c_str(), -1);
 
-            int font_size = config->metrics.caption_size > 0 ? config->metrics.caption_size : 10;
             std::string label_font = font_family + (is_selected ? " Bold " : " ") + std::to_string(font_size);
             PangoFontDescription* label_desc = pango_font_description_from_string(label_font.c_str());
             pango_layout_set_font_description(label_layout, label_desc);
@@ -194,9 +216,9 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
             pango_layout_get_pixel_size(label_layout, &text_w, &text_h);
 
             double text_x = ix + (iw - text_w) / 2.0;
-            double text_y = py + ph + 2;
+            double text_y = py + ph + label_gap;
 
-            cairo_move_to(cr, text_x, text_y);
+            cairo_move_to(cr, std::round(text_x), std::round(text_y));
             Color label_fg = is_selected ? config->colors.primary : config->colors.on_surface_variant;
             float alpha = is_selected ? 1.0f : 0.75f;
             cairo_set_source_rgba(cr, label_fg.r, label_fg.g, label_fg.b, alpha);
@@ -232,7 +254,7 @@ void BottomNavigationView::draw(cairo_t* cr, const Rect& bounds) {
 
             double btext_x = bp_x + (bp_w - bw) / 2.0;
             double btext_y = bp_y + (bp_h - bh) / 2.0;
-            cairo_move_to(cr, btext_x, btext_y);
+            cairo_move_to(cr, std::round(btext_x), std::round(btext_y));
             cairo_set_source_rgba(cr, config->colors.on_primary.r,
                                       config->colors.on_primary.g,
                                       config->colors.on_primary.b,
