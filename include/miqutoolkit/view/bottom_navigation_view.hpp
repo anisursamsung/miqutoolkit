@@ -43,6 +43,12 @@ public:
 
     void set_pill_size(int w, int h) { m_pill_w = w; m_pill_h = h; }
 
+    void set_corner_radius(int radius) { m_corner_radius = radius; }
+    int get_corner_radius() const { return m_corner_radius; }
+
+    void set_item_width(int w) { m_item_width = w; }
+    int get_item_width() const { return m_item_width; }
+
     void draw(cairo_t* cr, const Rect& bounds) override;
     Size measure_size() const override;
 
@@ -55,7 +61,9 @@ private:
     int m_hovered_index = -1;
     int m_pressed_index = -1;
     bool m_show_divider = true;
-    int m_bar_height = 58;
+    int m_corner_radius = 0;
+    int m_bar_height = 56;
+    int m_item_width = 72;
     int m_pill_w = 54;
     int m_pill_h = 28;
 
@@ -99,6 +107,16 @@ public:
 
     std::shared_ptr<BottomNavigationViewBuilder> showDivider(bool show) {
         m_view->set_show_divider(show);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<BottomNavigationViewBuilder> cornerRadius(int r) {
+        m_view->set_corner_radius(r);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<BottomNavigationViewBuilder> itemWidth(int w) {
+        m_view->set_item_width(w);
         return shared_from_this();
     }
 
