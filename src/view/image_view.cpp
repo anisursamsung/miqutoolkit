@@ -479,6 +479,29 @@ void ImageView::preload(const std::string& source, ImageQuality quality) {
     });
 }
 
+static std::string get_rendered_icon_cache_dir() {
+    const char* xdg_cache = getenv("XDG_CACHE_HOME");
+    std::string base;
+    if (xdg_cache && *xdg_cache) {
+        base = xdg_cache;
+    } else {
+        const char* home = getenv("HOME");
+        base = home ? std::string(home) + "/.cache" : "/tmp";
+    }
+    std::string dir = base + "/miqutoolkit/rendered_icons";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return dir;
+}
+
+static std::string get_rendered_icon_file(const std::string& key) {
+    char* checksum = g_compute_checksum_for_string(G_CHECKSUM_MD5, key.c_str(), -1);
+    if (!checksum) return "";
+    std::string filename = std::string(checksum) + ".png";
+    g_free(checksum);
+    return get_rendered_icon_cache_dir() + "/" + filename;
+}
+
 static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w, int box_h, FitMode fit_mode, int target_size, ImageQuality quality) {
     if (path_or_name.empty() || box_w <= 0 || box_h <= 0) return nullptr;
 
@@ -603,8 +626,31 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
         }
     }
 
+    // Fast disk cache for rendered SVGs / icons
+    std::string disk_cache_file = get_rendered_icon_file(cache_key);
+    bool use_disk_cache = false;
+    if (!disk_cache_file.empty() && fs::exists(disk_cache_file)) {
+        std::error_code dec, oec;
+        auto dtime = fs::last_write_time(disk_cache_file, dec);
+        auto otime = fs::last_write_time(file_to_decode, oec);
+        if (!dec && !oec && dtime >= otime) {
+            use_disk_cache = true;
+        }
+    }
+
     GError* error = nullptr;
-    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(file_to_decode.c_str(), req_w, req_h, preserve_aspect, &error);
+    GdkPixbuf* pixbuf = nullptr;
+    if (use_disk_cache) {
+        pixbuf = gdk_pixbuf_new_from_file(disk_cache_file.c_str(), &error);
+    } else {
+        pixbuf = gdk_pixbuf_new_from_file_at_scale(file_to_decode.c_str(), req_w, req_h, preserve_aspect, &error);
+        if (pixbuf && !disk_cache_file.empty()) {
+            GError* save_err = nullptr;
+            gdk_pixbuf_save(pixbuf, disk_cache_file.c_str(), "png", &save_err, "compression", "1", nullptr);
+            if (save_err) g_error_free(save_err);
+        }
+    }
+
     if (!pixbuf) {
         if (error) g_error_free(error);
         return nullptr;
@@ -635,6 +681,11 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
         s_surface_cache[cache_key] = s_surface_lru.begin();
     }
     return surf;
+}
+
+void ImageView::preload_surface(const std::string& source, int target_size) {
+    if (source.empty() || target_size <= 0) return;
+    load_surface(source, target_size, target_size, FitMode::Center, target_size, ImageQuality::FullOriginal);
 }
 
 #ifndef M_PI

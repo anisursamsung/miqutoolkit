@@ -68,6 +68,7 @@ public:
 
     static std::string resolve_icon_path(const std::string& icon_name);
     static void preload(const std::string& source, ImageQuality quality = ImageQuality::ThumbnailFast);
+    static void preload_surface(const std::string& source, int target_size);
     static void clear_cache();
 
 private:

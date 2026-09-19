@@ -26,11 +26,17 @@ public:
     void set_vertical_spacing(int sy) { m_space_y = sy; }
     void set_stretch_mode(StretchMode mode) { m_stretch_mode = mode; }
 
+    using ItemProviderCallback = std::function<std::shared_ptr<View>(size_t index)>;
+
     // Item management
     void set_items(std::vector<std::shared_ptr<View>> items);
     void add_item(std::shared_ptr<View> item);
+    void set_item_provider(size_t total_count, ItemProviderCallback provider);
     void clear_items();
-    size_t get_item_count() const { return m_items.size(); }
+    size_t get_item_count() const {
+        if (m_item_provider) return m_virtual_count;
+        return m_items.size();
+    }
     std::shared_ptr<View> get_item_at(size_t index) const;
 
     // Selection
@@ -72,6 +78,8 @@ private:
     mutable int m_effective_cell_w = 100;
 
     std::vector<std::shared_ptr<View>> m_items;
+    size_t m_virtual_count = 0;
+    ItemProviderCallback m_item_provider;
     std::function<void(size_t, std::shared_ptr<View>)> m_on_item_click;
 };
 
@@ -81,6 +89,11 @@ public:
 
     static std::shared_ptr<GridViewBuilder> create() {
         return std::make_shared<GridViewBuilder>();
+    }
+
+    std::shared_ptr<GridViewBuilder> itemProvider(size_t total_count, GridView::ItemProviderCallback provider) {
+        m_view->set_item_provider(total_count, std::move(provider));
+        return shared_from_this();
     }
 
     std::shared_ptr<GridViewBuilder> numColumns(int cols) {

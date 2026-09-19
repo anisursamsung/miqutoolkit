@@ -11,9 +11,147 @@
 #include <cstdlib>
 #include <sys/wait.h>
 
+#include <sys/stat.h>
+#include <cstdint>
+
 namespace miqu {
 
 namespace fs = std::filesystem;
+
+static std::string get_app_cache_path() {
+    const char* home = getenv("HOME");
+    if (!home) return "";
+    const char* xdg_cache = getenv("XDG_CACHE_HOME");
+    std::string base = (xdg_cache && *xdg_cache) ? xdg_cache : (std::string(home) + "/.cache");
+    std::string dir = base + "/miqutoolkit";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return dir + "/apps.cache";
+}
+
+static int64_t get_dir_mtime(const std::string& path) {
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0) {
+        return static_cast<int64_t>(st.st_mtime);
+    }
+    return 0;
+}
+
+static void write_str(std::ofstream& out, const std::string& s) {
+    uint16_t len = static_cast<uint16_t>(std::min<size_t>(s.size(), 65535));
+    out.write(reinterpret_cast<const char*>(&len), sizeof(len));
+    if (len > 0) {
+        out.write(s.data(), len);
+    }
+}
+
+static std::string read_str(std::ifstream& in) {
+    uint16_t len = 0;
+    in.read(reinterpret_cast<char*>(&len), sizeof(len));
+    if (!in || len == 0) return "";
+    std::string s(len, '\0');
+    in.read(&s[0], len);
+    return s;
+}
+
+static const uint32_t CACHE_MAGIC = 0x4D495155; // 'MIQU'
+static const uint32_t CACHE_VERSION = 2;
+
+static bool try_load_cache(const std::vector<std::string>& dirs, std::vector<DesktopApp>& out_apps) {
+    std::string path = get_app_cache_path();
+    if (path.empty() || !fs::exists(path)) return false;
+
+    std::ifstream in(path, std::ios::binary);
+    if (!in.is_open()) return false;
+
+    uint32_t magic = 0, version = 0;
+    in.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+    in.read(reinterpret_cast<char*>(&version), sizeof(version));
+    if (magic != CACHE_MAGIC || version != CACHE_VERSION) return false;
+
+    uint32_t dir_count = 0;
+    in.read(reinterpret_cast<char*>(&dir_count), sizeof(dir_count));
+    if (dir_count != static_cast<uint32_t>(dirs.size())) return false;
+
+    for (uint32_t i = 0; i < dir_count; ++i) {
+        std::string cached_dir = read_str(in);
+        int64_t cached_mtime = 0;
+        in.read(reinterpret_cast<char*>(&cached_mtime), sizeof(cached_mtime));
+
+        if (cached_dir != dirs[i]) return false;
+        int64_t current_mtime = get_dir_mtime(dirs[i]);
+        if (cached_mtime != current_mtime) return false;
+    }
+
+    uint32_t app_count = 0;
+    in.read(reinterpret_cast<char*>(&app_count), sizeof(app_count));
+    if (!in) return false;
+
+    out_apps.clear();
+    out_apps.reserve(app_count);
+
+    for (uint32_t i = 0; i < app_count; ++i) {
+        DesktopApp app;
+        app.id = read_str(in);
+        app.name = read_str(in);
+        app.generic_name = read_str(in);
+        app.comment = read_str(in);
+        app.exec_cmd = read_str(in);
+        app.icon_name = read_str(in);
+        app.icon_path = read_str(in);
+        app.categories = read_str(in);
+        app.keywords = read_str(in);
+        uint8_t flags = 0;
+        in.read(reinterpret_cast<char*>(&flags), sizeof(flags));
+        app.terminal = (flags & 1) != 0;
+        app.no_display = (flags & 2) != 0;
+
+        if (!in) {
+            out_apps.clear();
+            return false;
+        }
+        out_apps.push_back(std::move(app));
+    }
+
+    return true;
+}
+
+static void save_cache(const std::vector<std::string>& dirs, const std::vector<DesktopApp>& apps) {
+    std::string path = get_app_cache_path();
+    if (path.empty()) return;
+
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out.is_open()) return;
+
+    out.write(reinterpret_cast<const char*>(&CACHE_MAGIC), sizeof(CACHE_MAGIC));
+    out.write(reinterpret_cast<const char*>(&CACHE_VERSION), sizeof(CACHE_VERSION));
+
+    uint32_t dir_count = static_cast<uint32_t>(dirs.size());
+    out.write(reinterpret_cast<const char*>(&dir_count), sizeof(dir_count));
+
+    for (const auto& dir : dirs) {
+        write_str(out, dir);
+        int64_t mtime = get_dir_mtime(dir);
+        out.write(reinterpret_cast<const char*>(&mtime), sizeof(mtime));
+    }
+
+    uint32_t app_count = static_cast<uint32_t>(apps.size());
+    out.write(reinterpret_cast<const char*>(&app_count), sizeof(app_count));
+
+    for (const auto& app : apps) {
+        write_str(out, app.id);
+        write_str(out, app.name);
+        write_str(out, app.generic_name);
+        write_str(out, app.comment);
+        write_str(out, app.exec_cmd);
+        write_str(out, app.icon_name);
+        write_str(out, app.icon_path);
+        write_str(out, app.categories);
+        write_str(out, app.keywords);
+        uint8_t flags = (app.terminal ? 1 : 0) | (app.no_display ? 2 : 0);
+        out.write(reinterpret_cast<const char*>(&flags), sizeof(flags));
+    }
+}
 
 AppManager* AppManager::get() {
     static AppManager s_instance;
@@ -116,6 +254,12 @@ void AppManager::rescan_internal() {
         }
     }
 
+    // 1. Fast Path: If cache exists and directory mtimes match, load binary cache (<0.2ms)
+    if (try_load_cache(dirs, m_apps)) {
+        m_scanned = true;
+        return;
+    }
+
     std::set<std::string> seen_ids;
     std::set<std::string> seen_names;
 
@@ -180,10 +324,14 @@ void AppManager::rescan_internal() {
             }
             seen_names.insert(name);
 
-            // If icon is an explicit path, keep it; otherwise resolve on demand during view draw
+            // Pre-resolve icon path so ImageView doesn't need to search disk directories on startup
             std::string resolved_icon;
-            if (!icon.empty() && (icon[0] == '/' || icon[0] == '.' || icon[0] == '~')) {
-                resolved_icon = icon;
+            if (!icon.empty()) {
+                if (icon[0] == '/' || icon[0] == '.' || icon[0] == '~') {
+                    resolved_icon = icon;
+                } else {
+                    resolved_icon = ImageView::resolve_icon_path(icon);
+                }
             }
             std::string clean_command = clean_exec(exec);
 
@@ -207,6 +355,9 @@ void AppManager::rescan_internal() {
     std::sort(m_apps.begin(), m_apps.end(), [](const DesktopApp& a, const DesktopApp& b) {
         return a.name < b.name;
     });
+
+    // 2. Save binary cache for subsequent instant launches
+    save_cache(dirs, m_apps);
 
     m_scanned = true;
 }

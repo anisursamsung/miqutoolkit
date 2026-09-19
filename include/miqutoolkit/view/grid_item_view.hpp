@@ -11,20 +11,21 @@ class GridItemView : public View {
 public:
     GridItemView() = default;
     GridItemView(std::string title, std::string icon_source, bool is_image = false);
+    ~GridItemView() override;
 
-    void set_title(std::string title) { m_title = std::move(title); }
+    void set_title(std::string title);
     const std::string& get_title() const { return m_title; }
 
-    void set_subtitle(std::string subtitle) { m_subtitle = std::move(subtitle); }
+    void set_subtitle(std::string subtitle);
     const std::string& get_subtitle() const { return m_subtitle; }
 
-    void set_icon_source(std::string source) { m_icon_source = std::move(source); }
+    void set_icon_source(std::string source);
     const std::string& get_icon_source() const { return m_icon_source; }
 
-    void set_is_image(bool is_image) { m_is_image = is_image; }
+    void set_is_image(bool is_image);
     bool is_image() const { return m_is_image; }
 
-    void set_quality_mode(ImageQuality quality) { m_quality = quality; }
+    void set_quality_mode(ImageQuality quality);
     ImageQuality get_quality_mode() const { return m_quality; }
 
     void set_corner_radius(int radius) { m_corner_radius = radius; }
@@ -43,6 +44,18 @@ private:
     ImageQuality m_quality = ImageQuality::FullOriginal;
     int m_corner_radius = 6;
     bool m_highlight_subtitle = false;
+
+    // Retained Pango & View caches for instant redraws
+    void* m_title_layout = nullptr; // PangoLayout*
+    void* m_sub_layout = nullptr;   // PangoLayout*
+    int m_last_text_max_w = -1;
+    int m_cached_title_w = 0;
+    int m_cached_title_h = 0;
+    int m_cached_sub_w = 0;
+    int m_cached_sub_h = 0;
+    bool m_title_dirty = true;
+    bool m_sub_dirty = true;
+    ImageView m_icon_view;
 };
 
 class GridItemViewBuilder : public std::enable_shared_from_this<GridItemViewBuilder> {

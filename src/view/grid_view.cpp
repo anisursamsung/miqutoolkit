@@ -14,6 +14,8 @@ GridView::GridView() {
 
 void GridView::set_items(std::vector<std::shared_ptr<View>> items) {
     m_items = std::move(items);
+    m_item_provider = nullptr;
+    m_virtual_count = 0;
     m_selected_index = m_items.empty() ? -1 : 0;
     m_scroll_y = 0.0;
 }
@@ -27,14 +29,27 @@ void GridView::add_item(std::shared_ptr<View> item) {
     }
 }
 
+void GridView::set_item_provider(size_t total_count, ItemProviderCallback provider) {
+    m_items.clear();
+    m_virtual_count = total_count;
+    m_item_provider = std::move(provider);
+    m_selected_index = (total_count == 0) ? -1 : 0;
+    m_scroll_y = 0.0;
+}
+
 void GridView::clear_items() {
     m_items.clear();
+    m_virtual_count = 0;
+    m_item_provider = nullptr;
     m_selected_index = -1;
     m_hovered_index = -1;
     m_scroll_y = 0.0;
 }
 
 std::shared_ptr<View> GridView::get_item_at(size_t index) const {
+    if (m_item_provider && index < m_virtual_count) {
+        return m_item_provider(index);
+    }
     if (index < m_items.size()) {
         return m_items[index];
     }
@@ -42,11 +57,12 @@ std::shared_ptr<View> GridView::get_item_at(size_t index) const {
 }
 
 void GridView::set_selected_index(int index) {
-    if (m_items.empty()) {
+    size_t count = get_item_count();
+    if (count == 0) {
         m_selected_index = -1;
         return;
     }
-    m_selected_index = std::clamp(index, 0, static_cast<int>(m_items.size()) - 1);
+    m_selected_index = std::clamp(index, 0, static_cast<int>(count) - 1);
     if (m_last_height > 0 && m_effective_cols > 0) {
         int row_stride = m_cell_h + m_space_y;
         ensure_visible(m_last_height, m_effective_cols, row_stride);
@@ -54,8 +70,8 @@ void GridView::set_selected_index(int index) {
 }
 
 std::shared_ptr<View> GridView::get_selected_item() const {
-    if (m_selected_index >= 0 && m_selected_index < static_cast<int>(m_items.size())) {
-        return m_items[m_selected_index];
+    if (m_selected_index >= 0 && m_selected_index < static_cast<int>(get_item_count())) {
+        return get_item_at(static_cast<size_t>(m_selected_index));
     }
     return nullptr;
 }
@@ -96,7 +112,7 @@ void GridView::ensure_visible(int viewport_height, int cols, int row_stride) {
         m_scroll_y = item_bottom - viewport_height;
     }
 
-    int total_rows = (static_cast<int>(m_items.size()) + cols - 1) / cols;
+    int total_rows = (static_cast<int>(get_item_count()) + cols - 1) / cols;
     double content_h = total_rows * row_stride - m_space_y;
     double max_scroll = std::max(0.0, content_h - viewport_height);
     m_scroll_y = std::clamp(m_scroll_y, 0.0, max_scroll);
@@ -119,7 +135,7 @@ int GridView::item_at(int lx, int ly, const Rect& bounds) const {
     if (col >= cols) return -1;
 
     int idx = row * cols + col;
-    if (idx >= 0 && idx < static_cast<int>(m_items.size())) {
+    if (idx >= 0 && idx < static_cast<int>(get_item_count())) {
         return idx;
     }
     return -1;
@@ -135,7 +151,8 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
     int cell_w = 0;
     int cols = compute_columns(bounds.width, cell_w);
 
-    int total_rows = (static_cast<int>(m_items.size()) + cols - 1) / cols;
+    size_t count = get_item_count();
+    int total_rows = (static_cast<int>(count) + cols - 1) / cols;
     int row_stride = m_cell_h + m_space_y;
     double content_h = std::max(0, total_rows * row_stride - m_space_y);
     double max_scroll = std::max(0.0, content_h - bounds.height);
@@ -150,10 +167,10 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
     int end_row = std::min(total_rows, static_cast<int>((m_scroll_y + bounds.height) / row_stride) + 1);
 
     int start_idx = start_row * cols;
-    int end_idx = std::min(end_row * cols, static_cast<int>(m_items.size()));
+    int end_idx = std::min(end_row * cols, static_cast<int>(count));
 
     for (int i = start_idx; i < end_idx; ++i) {
-        const auto& item = m_items[i];
+        auto item = get_item_at(static_cast<size_t>(i));
         if (!item) continue;
 
         int grid_row = i / cols;
@@ -234,10 +251,10 @@ bool GridView::on_mouse_move(int lx, int ly, const Rect& bounds) {
 bool GridView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) {
     if (button == MouseButton::Left && pressed) {
         int idx = item_at(lx, ly, bounds);
-        if (idx >= 0 && idx < static_cast<int>(m_items.size())) {
+        if (idx >= 0 && idx < static_cast<int>(get_item_count())) {
             m_selected_index = idx;
             if (m_on_item_click) {
-                m_on_item_click(idx, m_items[idx]);
+                m_on_item_click(idx, get_item_at(static_cast<size_t>(idx)));
             }
             if (get_window()) {
                 get_window()->schedule_redraw();
@@ -251,7 +268,7 @@ bool GridView::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
 bool GridView::on_scroll(double delta) {
     int cell_w = 0;
     int cols = compute_columns(m_last_width, cell_w);
-    int total_rows = (static_cast<int>(m_items.size()) + cols - 1) / cols;
+    int total_rows = (static_cast<int>(get_item_count()) + cols - 1) / cols;
     int row_stride = m_cell_h + m_space_y;
     double content_h = total_rows * row_stride - m_space_y;
     double max_scroll = std::max(0.0, content_h - m_last_height);
@@ -269,11 +286,11 @@ bool GridView::on_scroll(double delta) {
 }
 
 bool GridView::on_key(const KeyPressEvent& event) {
-    if (!event.pressed || m_items.empty()) return false;
+    int total = static_cast<int>(get_item_count());
+    if (!event.pressed || total == 0) return false;
 
     int cell_w = 0;
     int cols = compute_columns(m_last_width, cell_w);
-    int total = static_cast<int>(m_items.size());
     int old_sel = m_selected_index;
 
     switch (event.keysym) {
@@ -300,7 +317,7 @@ bool GridView::on_key(const KeyPressEvent& event) {
         case XKB_KEY_KP_Enter:
             if (m_selected_index >= 0 && m_selected_index < total) {
                 if (m_on_item_click) {
-                    m_on_item_click(m_selected_index, m_items[m_selected_index]);
+                    m_on_item_click(m_selected_index, get_item_at(static_cast<size_t>(m_selected_index)));
                 }
                 return true;
             }
