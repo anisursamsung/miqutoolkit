@@ -1,6 +1,7 @@
 #include "miqutoolkit/core/window.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
 #include "miqutoolkit/core/config.hpp"
+#include "miqutoolkit/system/window_manager.hpp"
 #include "xdg-shell-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "ext-session-lock-v1-client-protocol.h"
@@ -639,6 +640,35 @@ void Window::close() {
     if (engine && engine->get_display()) {
         wl_display_flush(engine->get_display());
     }
+}
+
+void Window::request_close() {
+    if (m_role == WindowRole::Toplevel) {
+        auto* engine = AppEngine::instance();
+        if (engine) {
+            engine->get_foreign_toplevel_manager();
+            auto* wm = WindowManager::get();
+            if (wm && wm->is_supported()) {
+                auto windows = wm->get_windows();
+                for (auto& win : windows) {
+                    if (!m_app_id.empty() && win.app_id == m_app_id) {
+                        win.close();
+                        return;
+                    }
+                }
+                const auto* active = wm->get_active_window();
+                if (active) {
+                    const_cast<WindowInfo*>(active)->close();
+                    return;
+                }
+            }
+        }
+    }
+
+    if (m_on_close) {
+        m_on_close();
+    }
+    close();
 }
 
 void Window::update_cursor(uint32_t serial) {

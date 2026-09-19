@@ -40,6 +40,7 @@ public:
     bool init();
     void show();
     void close();
+    void request_close();
 
     void set_content_view(std::shared_ptr<View> view);
     std::shared_ptr<View> get_content_view() const { return m_root_view; }

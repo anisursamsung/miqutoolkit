@@ -65,7 +65,11 @@ Toolbar::Toolbar() {
     m_btn_close->set_icon_size(18);
     m_btn_close->set_layout_params(LayoutParams(34, 34, Gravity::CenterVertical));
     m_btn_close->set_on_click_listener([this]() {
-        if (m_on_close) m_on_close();
+        if (m_on_close) {
+            m_on_close();
+        } else if (m_window) {
+            m_window->request_close();
+        }
     });
 
     rebuild_internal_views();
