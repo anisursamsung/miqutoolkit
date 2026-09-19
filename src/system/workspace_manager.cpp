@@ -8,6 +8,10 @@ namespace miqu {
 
 WorkspaceManager* WorkspaceManager::get() {
     static WorkspaceManager s_instance;
+    auto* engine = AppEngine::instance();
+    if (engine && !s_instance.m_manager) {
+        engine->get_workspace_manager_protocol();
+    }
     return &s_instance;
 }
 

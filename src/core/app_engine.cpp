@@ -156,11 +156,29 @@ bool AppEngine::init() {
         return false;
     }
 
-    wl_display_roundtrip(m_display);
-
     setup_config_watcher();
 
     return true;
+}
+
+struct zwlr_foreign_toplevel_manager_v1* AppEngine::get_foreign_toplevel_manager() {
+    if (!m_foreign_toplevel_manager && m_foreign_toplevel_manager_name > 0 && m_registry) {
+        m_foreign_toplevel_manager = static_cast<struct zwlr_foreign_toplevel_manager_v1*>(
+            wl_registry_bind(m_registry, m_foreign_toplevel_manager_name, &zwlr_foreign_toplevel_manager_v1_interface, std::min(m_foreign_toplevel_manager_version, 3u)));
+        WindowManager::get()->init_protocol(m_foreign_toplevel_manager);
+        wl_display_roundtrip(m_display);
+    }
+    return m_foreign_toplevel_manager;
+}
+
+struct ext_workspace_manager_v1* AppEngine::get_workspace_manager_protocol() {
+    if (!m_ext_workspace_manager && m_ext_workspace_manager_name > 0 && m_registry) {
+        m_ext_workspace_manager = static_cast<struct ext_workspace_manager_v1*>(
+            wl_registry_bind(m_registry, m_ext_workspace_manager_name, &ext_workspace_manager_v1_interface, 1));
+        WorkspaceManager::get()->init_protocol(m_ext_workspace_manager);
+        wl_display_roundtrip(m_display);
+    }
+    return m_ext_workspace_manager;
 }
 
 void AppEngine::registry_global(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
@@ -180,13 +198,11 @@ void AppEngine::registry_global(void* data, struct wl_registry* registry, uint32
         self->m_layer_shell = static_cast<struct zwlr_layer_shell_v1*>(
             wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, std::min(version, 4u)));
     } else if (std::strcmp(interface, zwlr_foreign_toplevel_manager_v1_interface.name) == 0) {
-        self->m_foreign_toplevel_manager = static_cast<struct zwlr_foreign_toplevel_manager_v1*>(
-            wl_registry_bind(registry, name, &zwlr_foreign_toplevel_manager_v1_interface, std::min(version, 3u)));
-        WindowManager::get()->init_protocol(self->m_foreign_toplevel_manager);
+        self->m_foreign_toplevel_manager_name = name;
+        self->m_foreign_toplevel_manager_version = version;
     } else if (std::strcmp(interface, ext_workspace_manager_v1_interface.name) == 0) {
-        self->m_ext_workspace_manager = static_cast<struct ext_workspace_manager_v1*>(
-            wl_registry_bind(registry, name, &ext_workspace_manager_v1_interface, 1));
-        WorkspaceManager::get()->init_protocol(self->m_ext_workspace_manager);
+        self->m_ext_workspace_manager_name = name;
+        self->m_ext_workspace_manager_version = version;
     } else if (std::strcmp(interface, wl_seat_interface.name) == 0) {
         self->m_seat = static_cast<struct wl_seat*>(
             wl_registry_bind(registry, name, &wl_seat_interface, std::min(version, 7u)));

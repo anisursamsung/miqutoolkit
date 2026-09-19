@@ -8,6 +8,10 @@ namespace miqu {
 
 WindowManager* WindowManager::get() {
     static WindowManager s_instance;
+    auto* engine = AppEngine::instance();
+    if (engine && !s_instance.m_manager) {
+        engine->get_foreign_toplevel_manager();
+    }
     return &s_instance;
 }
 

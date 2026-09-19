@@ -37,8 +37,8 @@ public:
     struct wl_compositor* get_compositor() const { return m_compositor; }
     struct wl_shm* get_shm() const { return m_shm; }
     struct zwlr_layer_shell_v1* get_layer_shell() const { return m_layer_shell; }
-    struct zwlr_foreign_toplevel_manager_v1* get_foreign_toplevel_manager() const { return m_foreign_toplevel_manager; }
-    struct ext_workspace_manager_v1* get_workspace_manager_protocol() const { return m_ext_workspace_manager; }
+    struct zwlr_foreign_toplevel_manager_v1* get_foreign_toplevel_manager();
+    struct ext_workspace_manager_v1* get_workspace_manager_protocol();
     struct ext_idle_notifier_v1* get_idle_notifier() const { return m_idle_notifier; }
     struct ext_session_lock_manager_v1* get_session_lock_manager() const { return m_session_lock_manager; }
     struct ext_session_lock_v1* get_session_lock() const { return m_session_lock; }
@@ -79,7 +79,11 @@ private:
     struct wl_shm* m_shm = nullptr;
     struct zwlr_layer_shell_v1* m_layer_shell = nullptr;
     struct zwlr_foreign_toplevel_manager_v1* m_foreign_toplevel_manager = nullptr;
+    uint32_t m_foreign_toplevel_manager_name = 0;
+    uint32_t m_foreign_toplevel_manager_version = 0;
     struct ext_workspace_manager_v1* m_ext_workspace_manager = nullptr;
+    uint32_t m_ext_workspace_manager_name = 0;
+    uint32_t m_ext_workspace_manager_version = 0;
     struct ext_idle_notifier_v1* m_idle_notifier = nullptr;
     struct ext_session_lock_manager_v1* m_session_lock_manager = nullptr;
     struct ext_session_lock_v1* m_session_lock = nullptr;
