@@ -72,6 +72,7 @@ Size SearchView::measure_size() const {
 }
 
 void SearchView::draw(cairo_t* cr, const Rect& bounds) {
+    m_bounds = bounds;
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
     auto config = Config::get();

@@ -179,9 +179,17 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
             return;
         }
 
+        View* prev_focused = self->m_focused_view;
+
         if (self->m_root_view) {
             if (self->m_root_view->on_mouse_button(self->m_last_x, self->m_last_y, mb, pressed, self->m_allocated_content_bounds)) {
                 self->schedule_redraw();
+            }
+        }
+
+        if (pressed && mb == MouseButton::Left && prev_focused && self->m_focused_view == prev_focused) {
+            if (!prev_focused->contains_point(self->m_last_x, self->m_last_y)) {
+                self->clear_focus();
             }
         }
     },
@@ -296,6 +304,13 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
 
         if (self->m_on_key) {
             self->m_on_key(event);
+        }
+
+        if (self->m_focused_view) {
+            if (self->m_focused_view->on_key(event)) {
+                self->schedule_redraw();
+                return;
+            }
         }
 
         if (self->m_root_view) {
@@ -705,6 +720,23 @@ void Window::update_cursor(uint32_t serial) {
     wl_surface_commit(m_cursor_surface);
 
     wl_pointer_set_cursor(m_pointer, serial, m_cursor_surface, image->hotspot_x, image->hotspot_y);
+}
+
+void Window::set_focused_view(View* view) {
+    if (m_focused_view == view) return;
+    View* old_focus = m_focused_view;
+    m_focused_view = view;
+    if (old_focus) {
+        old_focus->on_focus_changed(false);
+    }
+    if (m_focused_view) {
+        m_focused_view->on_focus_changed(true);
+    }
+    schedule_redraw();
+}
+
+void Window::clear_focus() {
+    set_focused_view(nullptr);
 }
 
 } // namespace miqu

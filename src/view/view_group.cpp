@@ -15,6 +15,22 @@ void View::request_redraw() {
     }
 }
 
+void View::request_focus() {
+    if (m_window) {
+        m_window->set_focused_view(this);
+    }
+}
+
+void View::clear_focus() {
+    if (m_window && m_window->get_focused_view() == this) {
+        m_window->clear_focus();
+    }
+}
+
+bool View::has_focus() const {
+    return m_window && (m_window->get_focused_view() == this);
+}
+
 void ViewGroup::draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r) {
     if (r <= 0.0) {
         cairo_rectangle(cr, x, y, w, h);

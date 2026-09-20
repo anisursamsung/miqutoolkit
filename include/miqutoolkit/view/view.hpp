@@ -44,6 +44,9 @@ public:
     // Bounds & Geometry
     void set_bounds(const Rect& r) { m_bounds = r; }
     const Rect& get_bounds() const { return m_bounds; }
+    virtual bool contains_point(double x, double y) const {
+        return m_bounds.contains(static_cast<int>(x), static_cast<int>(y));
+    }
 
     // Padding (Inner spacing)
     void set_padding(const Padding& p) { m_padding = p; }
@@ -85,6 +88,12 @@ public:
     virtual void set_window(Window* win) { m_window = win; }
     Window* get_window() const { return m_window; }
     void request_redraw();
+
+    // Focus Management
+    virtual void on_focus_changed(bool focused) { (void)focused; }
+    void request_focus();
+    void clear_focus();
+    bool has_focus() const;
 
 protected:
     Rect m_bounds;

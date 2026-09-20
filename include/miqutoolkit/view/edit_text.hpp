@@ -27,7 +27,7 @@ public:
     void set_password_mode(bool enable) { m_password_mode = enable; }
     bool is_password_mode() const { return m_password_mode; }
 
-    void set_focused(bool focus) { m_focused = focus; }
+    void set_focused(bool focus);
     bool is_focused() const { return m_focused; }
 
     void set_draw_background(bool draw) { m_draw_background = draw; }
@@ -43,6 +43,9 @@ public:
 
     void clear();
 
+    void set_window(Window* win) override;
+    void on_focus_changed(bool focused) override;
+
     void draw(cairo_t* cr, const Rect& bounds) override;
     Size measure_size() const override;
 
@@ -53,7 +56,7 @@ private:
     std::string m_text;
     std::string m_hint = "";
     int m_cursor_pos = 0;
-    bool m_focused = true;
+    bool m_focused = false;
     bool m_draw_background = true;
     bool m_password_mode = false;
 

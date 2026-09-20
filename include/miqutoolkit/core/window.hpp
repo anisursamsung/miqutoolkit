@@ -106,6 +106,11 @@ public:
 
     void update_seat_capabilities(uint32_t caps);
 
+    // Focus Management
+    void set_focused_view(View* view);
+    void clear_focus();
+    View* get_focused_view() const { return m_focused_view; }
+
 private:
     void render_frame();
 
@@ -140,6 +145,7 @@ private:
     bool m_needs_redraw = false;
     bool m_rendering = false;
     bool m_has_keyboard_focus = false;
+    View* m_focused_view = nullptr;
     Rect m_allocated_content_bounds;
 
     struct wl_surface* m_surface = nullptr;

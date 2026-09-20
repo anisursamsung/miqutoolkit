@@ -5,9 +5,32 @@
 #include <pango/pangocairo.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <algorithm>
-#include <iostream>
-
 namespace miqu {
+
+void EditText::set_window(Window* win) {
+    View::set_window(win);
+    if (win && m_focused && !win->get_focused_view()) {
+        win->set_focused_view(this);
+    }
+}
+
+void EditText::set_focused(bool focus) {
+    m_focused = focus;
+    if (focus) {
+        request_focus();
+    } else {
+        if (has_focus()) {
+            clear_focus();
+        }
+    }
+}
+
+void EditText::on_focus_changed(bool focused) {
+    if (m_focused != focused) {
+        m_focused = focused;
+        request_redraw();
+    }
+}
 
 void EditText::set_text(std::string text) {
     m_text = std::move(text);
@@ -25,6 +48,7 @@ Size EditText::measure_size() const {
 }
 
 void EditText::draw(cairo_t* cr, const Rect& bounds) {
+    m_bounds = bounds;
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
     auto config = Config::get();
@@ -261,7 +285,7 @@ bool EditText::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
         Rect pill_rect(draw_x, draw_y, draw_w, draw_h);
 
         if (pill_rect.contains(lx, ly)) {
-            m_focused = true;
+            request_focus();
             int pad_left = m_padding.left > 0 ? m_padding.left : 14;
             int rel_x = lx - (draw_x + pad_left);
 
@@ -290,10 +314,6 @@ bool EditText::on_mouse_button(int lx, int ly, MouseButton button, bool pressed,
                 cairo_destroy(cr);
                 cairo_surface_destroy(temp_surf);
             }
-            if (m_window) m_window->schedule_redraw();
-            return true;
-        } else if (m_focused) {
-            m_focused = false;
             if (m_window) m_window->schedule_redraw();
             return true;
         }

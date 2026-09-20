@@ -4,10 +4,18 @@
 
 namespace miqu {
 
+enum class CardStyle {
+    Filled,    // Modern borderless surface card (default)
+    Outlined,  // Card with outline border
+    Elevated   // Elevated card with subtle ambient drop shadow
+};
+
 class CardView : public FrameLayout {
 public:
     CardView() {
         m_corner_radius = -1; // -1 denotes default from theme metrics
+        m_style = CardStyle::Filled;
+        m_elevation = 0;
     }
 
     void set_card_background_color(const Color& color) { set_background_color(color); }
@@ -15,6 +23,22 @@ public:
 
     void set_radius(int radius) { set_corner_radius(radius); }
     int get_radius() const { return get_corner_radius(); }
+
+    void set_style(CardStyle style) { m_style = style; }
+    CardStyle get_style() const { return m_style; }
+
+    void set_borderless(bool borderless = true) {
+        m_style = borderless ? CardStyle::Filled : CardStyle::Outlined;
+    }
+    bool is_borderless() const { return m_style != CardStyle::Outlined && m_stroke_width <= 0; }
+
+    void set_bordered(bool bordered = true) {
+        m_style = bordered ? CardStyle::Outlined : CardStyle::Filled;
+    }
+    bool is_bordered() const { return m_style == CardStyle::Outlined || m_stroke_width > 0; }
+
+    void set_elevation(int elevation) { m_elevation = elevation; }
+    int get_elevation() const { return m_elevation; }
 
     void draw(cairo_t* cr, const Rect& bounds) override;
 
@@ -30,6 +54,10 @@ public:
     }
 
     static void draw_rounded_rect(cairo_t* cr, double x, double y, double w, double h, double r);
+
+private:
+    CardStyle m_style = CardStyle::Filled;
+    int m_elevation = 0;
 };
 
 class CardViewBuilder : public std::enable_shared_from_this<CardViewBuilder> {
@@ -38,6 +66,31 @@ public:
 
     static std::shared_ptr<CardViewBuilder> create() {
         return std::make_shared<CardViewBuilder>();
+    }
+
+    std::shared_ptr<CardViewBuilder> style(CardStyle s) {
+        m_view->set_style(s);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<CardViewBuilder> borderless(bool b = true) {
+        m_view->set_borderless(b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<CardViewBuilder> bordered(bool b = true) {
+        m_view->set_bordered(b);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<CardViewBuilder> outlined(bool o = true) {
+        m_view->set_bordered(o);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<CardViewBuilder> elevation(int elev) {
+        m_view->set_elevation(elev);
+        return shared_from_this();
     }
 
     std::shared_ptr<CardViewBuilder> backgroundColor(const Color& col) {
