@@ -56,6 +56,7 @@ public:
     );
 
 private:
+    std::string m_app_config_file;
     std::vector<std::string> m_loaded_files;
     std::vector<std::function<void()>> m_change_listeners;
 };

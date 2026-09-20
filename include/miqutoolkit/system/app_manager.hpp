@@ -27,13 +27,14 @@ public:
 
     const std::vector<DesktopApp>& get_installed_apps(bool force_rescan = false);
     void scan_async(std::function<void(const std::vector<DesktopApp>&)> callback);
+    void invalidate();
 
     static std::string clean_exec(const std::string& raw);
     static void launch(const DesktopApp& app);
     static void launch_command(const std::string& cmd, bool terminal = false);
 
 private:
-    AppManager() = default;
+    AppManager();
     void rescan_internal();
 
     std::vector<DesktopApp> m_apps;

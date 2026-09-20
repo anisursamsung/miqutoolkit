@@ -1,5 +1,6 @@
 #include "miqutoolkit/core/config.hpp"
 #include "miqutoolkit/core/fs_utils.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -229,11 +230,18 @@ static void load_config_file_internal(const std::string& path, Config::Colors& c
 bool Config::load_from_file(const std::string& path) {
     std::string expanded = expand_path(path);
     if (!fs::exists(expanded)) return false;
+
+    if (path.find("miqutoolkit.conf") == std::string::npos) {
+        m_app_config_file = expanded;
+    }
+
     load_config_file_internal(expanded, colors, metrics, m_loaded_files, 0);
+    notify_changed();
     return true;
 }
 
 void Config::notify_changed() {
+    ImageView::clear_cache();
     for (auto& listener : m_change_listeners) {
         if (listener) listener();
     }
@@ -245,44 +253,57 @@ void Config::init_toolkit_defaults() {
     std::string user_cfg_dir = FsUtils::get_user_config_dir("miqutoolkit");
     std::string user_cfg_file = user_cfg_dir.empty() ? "" : (user_cfg_dir + "/miqutoolkit.conf");
 
+    bool loaded_defaults = false;
+
     // Tier 2: Check if user config exists already
     if (!user_cfg_file.empty() && fs::exists(user_cfg_file)) {
-        load_from_file(user_cfg_file);
-        notify_changed();
-        return;
+        std::string exp = expand_path(user_cfg_file);
+        load_config_file_internal(exp, colors, metrics, m_loaded_files, 0);
+        loaded_defaults = true;
     }
 
-    // If user configuration directory exists but file is absent,
-    // the user intentionally deleted their config. Fall back directly to root.
-    bool user_deleted_config = !user_cfg_dir.empty() && fs::exists(user_cfg_dir) && !fs::exists(user_cfg_file);
+    if (!loaded_defaults) {
+        // If user configuration directory exists but file is absent,
+        // the user intentionally deleted their config. Fall back directly to root.
+        bool user_deleted_config = !user_cfg_dir.empty() && fs::exists(user_cfg_dir) && !fs::exists(user_cfg_file);
 
-    if (!user_deleted_config) {
-        // First launch: initialize user config from root template
-        std::string seeded = ensure_user_config("miqutoolkit", "miqutoolkit.conf");
-        if (!seeded.empty() && fs::exists(seeded)) {
-            load_from_file(seeded);
-            notify_changed();
-            return;
+        if (!user_deleted_config) {
+            // First launch: initialize user config from root template
+            std::string seeded = ensure_user_config("miqutoolkit", "miqutoolkit.conf");
+            if (!seeded.empty() && fs::exists(seeded)) {
+                std::string exp = expand_path(seeded);
+                load_config_file_internal(exp, colors, metrics, m_loaded_files, 0);
+                loaded_defaults = true;
+            }
         }
     }
 
-    // Tier 3: Safe root fallback
-    const std::vector<std::string> root_candidates = {
-        "/usr/share/miqutoolkit/miqutoolkit.conf",
-        "/etc/xdg/miqutoolkit/miqutoolkit.conf",
-        "/etc/miqutoolkit/miqutoolkit.conf",
-        "/usr/local/share/miqutoolkit/miqutoolkit.conf",
-        "assets/miqutoolkit.conf",
-        "../assets/miqutoolkit.conf"
-    };
+    if (!loaded_defaults) {
+        // Tier 3: Safe root fallback
+        const std::vector<std::string> root_candidates = {
+            "/usr/share/miqutoolkit/miqutoolkit.conf",
+            "/etc/xdg/miqutoolkit/miqutoolkit.conf",
+            "/etc/miqutoolkit/miqutoolkit.conf",
+            "/usr/local/share/miqutoolkit/miqutoolkit.conf",
+            "assets/miqutoolkit.conf",
+            "../assets/miqutoolkit.conf"
+        };
 
-    for (const auto& root_file : root_candidates) {
-        if (fs::exists(root_file)) {
-            if (load_from_file(root_file)) {
+        for (const auto& root_file : root_candidates) {
+            if (fs::exists(root_file)) {
+                std::string exp = expand_path(root_file);
+                load_config_file_internal(exp, colors, metrics, m_loaded_files, 0);
+                loaded_defaults = true;
                 break;
             }
         }
     }
+
+    // Re-apply app-specific config file on top of defaults if one was registered
+    if (!m_app_config_file.empty() && fs::exists(m_app_config_file)) {
+        load_config_file_internal(m_app_config_file, colors, metrics, m_loaded_files, 0);
+    }
+
     notify_changed();
 }
 

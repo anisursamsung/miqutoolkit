@@ -67,8 +67,19 @@ void ImageButton::draw(cairo_t* cr, const Rect& bounds) {
         temp_img.set_target_size(icon_s);
         temp_img.draw(cr, Rect(ix, iy, icon_s, icon_s));
     } else if (!m_icon.empty()) {
-        Color fg = m_custom_icon_color ? m_icon_color : config->colors.on_surface;
-        if (m_pressed) fg = config->colors.primary;
+        std::string res_path = ImageView::resolve_icon_path(m_icon);
+        bool is_img_icon = !res_path.empty() || m_icon.starts_with('/') || m_icon.ends_with(".png") || m_icon.ends_with(".svg");
+        if (is_img_icon) {
+            int icon_s = m_icon_size > 0 ? m_icon_size : 20;
+            int ix = draw_x + (draw_w - icon_s) / 2;
+            int iy = draw_y + (draw_h - icon_s) / 2;
+
+            ImageView temp_img(!res_path.empty() ? res_path : m_icon);
+            temp_img.set_target_size(icon_s);
+            temp_img.draw(cr, Rect(ix, iy, icon_s, icon_s));
+        } else {
+            Color fg = m_custom_icon_color ? m_icon_color : config->colors.on_surface;
+            if (m_pressed) fg = config->colors.primary;
 
         PangoLayout* layout = pango_cairo_create_layout(cr);
         pango_layout_set_text(layout, m_icon.c_str(), -1);
@@ -93,6 +104,7 @@ void ImageButton::draw(cairo_t* cr, const Rect& bounds) {
         pango_cairo_show_layout(cr, layout);
 
         g_object_unref(layout);
+        }
     }
 
     cairo_restore(cr);

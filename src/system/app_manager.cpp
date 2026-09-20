@@ -1,5 +1,6 @@
 #include "miqutoolkit/system/app_manager.hpp"
 #include "miqutoolkit/view/image_view.hpp"
+#include "miqutoolkit/core/config.hpp"
 #include "miqutoolkit/core/thread_pool.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
 #include <filesystem>
@@ -18,7 +19,16 @@ namespace miqu {
 
 namespace fs = std::filesystem;
 
-static std::string get_app_cache_path() {
+static std::string sanitize_theme_name(const std::string& theme) {
+    if (theme.empty()) return "default";
+    std::string safe = theme;
+    for (char& c : safe) {
+        if (!std::isalnum(c) && c != '-' && c != '_') c = '_';
+    }
+    return safe;
+}
+
+static std::string get_app_cache_path(const std::string& icon_theme) {
     const char* home = getenv("HOME");
     if (!home) return "";
     const char* xdg_cache = getenv("XDG_CACHE_HOME");
@@ -26,7 +36,7 @@ static std::string get_app_cache_path() {
     std::string dir = base + "/miqutoolkit";
     std::error_code ec;
     fs::create_directories(dir, ec);
-    return dir + "/apps.cache";
+    return dir + "/apps_" + sanitize_theme_name(icon_theme) + ".cache";
 }
 
 static int64_t get_dir_mtime(const std::string& path) {
@@ -55,10 +65,10 @@ static std::string read_str(std::ifstream& in) {
 }
 
 static const uint32_t CACHE_MAGIC = 0x4D495155; // 'MIQU'
-static const uint32_t CACHE_VERSION = 2;
+static const uint32_t CACHE_VERSION = 3;
 
-static bool try_load_cache(const std::vector<std::string>& dirs, std::vector<DesktopApp>& out_apps) {
-    std::string path = get_app_cache_path();
+static bool try_load_cache(const std::string& icon_theme, const std::vector<std::string>& dirs, std::vector<DesktopApp>& out_apps) {
+    std::string path = get_app_cache_path(icon_theme);
     if (path.empty() || !fs::exists(path)) return false;
 
     std::ifstream in(path, std::ios::binary);
@@ -68,6 +78,9 @@ static bool try_load_cache(const std::vector<std::string>& dirs, std::vector<Des
     in.read(reinterpret_cast<char*>(&magic), sizeof(magic));
     in.read(reinterpret_cast<char*>(&version), sizeof(version));
     if (magic != CACHE_MAGIC || version != CACHE_VERSION) return false;
+
+    std::string cached_theme = read_str(in);
+    if (cached_theme != icon_theme) return false;
 
     uint32_t dir_count = 0;
     in.read(reinterpret_cast<char*>(&dir_count), sizeof(dir_count));
@@ -116,8 +129,8 @@ static bool try_load_cache(const std::vector<std::string>& dirs, std::vector<Des
     return true;
 }
 
-static void save_cache(const std::vector<std::string>& dirs, const std::vector<DesktopApp>& apps) {
-    std::string path = get_app_cache_path();
+static void save_cache(const std::string& icon_theme, const std::vector<std::string>& dirs, const std::vector<DesktopApp>& apps) {
+    std::string path = get_app_cache_path(icon_theme);
     if (path.empty()) return;
 
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
@@ -125,6 +138,7 @@ static void save_cache(const std::vector<std::string>& dirs, const std::vector<D
 
     out.write(reinterpret_cast<const char*>(&CACHE_MAGIC), sizeof(CACHE_MAGIC));
     out.write(reinterpret_cast<const char*>(&CACHE_VERSION), sizeof(CACHE_VERSION));
+    write_str(out, icon_theme);
 
     uint32_t dir_count = static_cast<uint32_t>(dirs.size());
     out.write(reinterpret_cast<const char*>(&dir_count), sizeof(dir_count));
@@ -153,9 +167,20 @@ static void save_cache(const std::vector<std::string>& dirs, const std::vector<D
     }
 }
 
+AppManager::AppManager() {
+    Config::get()->add_change_listener([this]() {
+        invalidate();
+    });
+}
+
 AppManager* AppManager::get() {
     static AppManager s_instance;
     return &s_instance;
+}
+
+void AppManager::invalidate() {
+    m_scanned = false;
+    m_apps.clear();
 }
 
 std::string AppManager::clean_exec(const std::string& raw) {
@@ -254,8 +279,11 @@ void AppManager::rescan_internal() {
         }
     }
 
+    std::string active_theme = Config::get()->metrics.icon_theme;
+    if (active_theme.empty()) active_theme = "hicolor";
+
     // 1. Fast Path: If cache exists and directory mtimes match, load binary cache (<0.2ms)
-    if (try_load_cache(dirs, m_apps)) {
+    if (try_load_cache(active_theme, dirs, m_apps)) {
         m_scanned = true;
         return;
     }
@@ -357,7 +385,7 @@ void AppManager::rescan_internal() {
     });
 
     // 2. Save binary cache for subsequent instant launches
-    save_cache(dirs, m_apps);
+    save_cache(active_theme, dirs, m_apps);
 
     m_scanned = true;
 }

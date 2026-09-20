@@ -33,6 +33,9 @@ static std::unordered_map<std::string, std::string> s_path_cache;
 static std::mutex s_pending_mutex;
 static std::unordered_set<std::string> s_pending_thumbnails;
 
+static std::mutex s_theme_hierarchy_mutex;
+static std::map<std::string, std::vector<std::string>> s_cached_theme_search_dirs;
+
 static std::string trim_str(const std::string& str) {
     return StringUtils::trim(str, " \t\r\n\"'");
 }
@@ -42,15 +45,21 @@ static std::string str_to_lower(std::string s) {
 }
 
 void ImageView::clear_cache() {
-    std::lock_guard<std::mutex> lock(s_cache_mutex);
-    for (auto& item : s_surface_lru) {
-        if (item.second) {
-            cairo_surface_destroy(item.second);
+    {
+        std::lock_guard<std::mutex> lock(s_cache_mutex);
+        for (auto& item : s_surface_lru) {
+            if (item.second) {
+                cairo_surface_destroy(item.second);
+            }
         }
+        s_surface_lru.clear();
+        s_surface_cache.clear();
+        s_path_cache.clear();
     }
-    s_surface_lru.clear();
-    s_surface_cache.clear();
-    s_path_cache.clear();
+    {
+        std::lock_guard<std::mutex> lock(s_theme_hierarchy_mutex);
+        s_cached_theme_search_dirs.clear();
+    }
 }
 
 static std::vector<std::string> get_icon_base_roots() {
@@ -197,9 +206,6 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
         }
     }
 
-    static std::mutex s_theme_hierarchy_mutex;
-    static std::map<std::string, std::vector<std::string>> s_cached_theme_search_dirs;
-
     std::vector<std::string> search_dirs_to_check;
     {
         std::lock_guard<std::mutex> lock(s_theme_hierarchy_mutex);
@@ -297,6 +303,17 @@ std::string ImageView::resolve_icon_path(const std::string& icon_name) {
     if (str_to_lower(clean_name) != clean_name) {
         name_candidates.push_back(str_to_lower(clean_name));
     }
+
+    // For reverse-DNS identifiers (e.g. org.gnome.Nautilus, org.xfce.thunar, io.github.alacritty)
+    size_t last_dot = clean_name.rfind('.');
+    if (last_dot != std::string::npos && last_dot + 1 < clean_name.size()) {
+        std::string base_id = clean_name.substr(last_dot + 1);
+        name_candidates.push_back(base_id);
+        if (str_to_lower(base_id) != base_id) {
+            name_candidates.push_back(str_to_lower(base_id));
+        }
+    }
+
     if (clean_name.size() > 9 && clean_name.substr(clean_name.size() - 9) == "-symbolic") {
         name_candidates.push_back(clean_name.substr(0, clean_name.size() - 9));
     } else {
