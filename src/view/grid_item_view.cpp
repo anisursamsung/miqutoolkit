@@ -10,8 +10,8 @@ namespace miqu {
 static std::mutex s_font_desc_mutex;
 static std::unordered_map<std::string, PangoFontDescription*> s_font_desc_cache;
 
-static PangoFontDescription* get_font_desc(const std::string& font_family, int font_size) {
-    std::string key = font_family + " " + std::to_string(font_size);
+static PangoFontDescription* get_font_desc(const std::string& font_family, int font_size, bool bold = false) {
+    std::string key = font_family + (bold ? " Bold " : " ") + std::to_string(font_size);
     std::lock_guard<std::mutex> lock(s_font_desc_mutex);
     auto it = s_font_desc_cache.find(key);
     if (it != s_font_desc_cache.end()) {
@@ -42,6 +42,19 @@ void GridItemView::set_title(std::string title) {
     if (m_title != title) {
         m_title = std::move(title);
         m_title_dirty = true;
+    }
+}
+
+void GridItemView::set_title_bold(bool bold) {
+    if (m_title_bold != bold) {
+        m_title_bold = bold;
+        m_title_dirty = true;
+    }
+}
+
+void GridItemView::set_highlight_title(bool highlight) {
+    if (m_highlight_title != highlight) {
+        m_highlight_title = highlight;
     }
 }
 
@@ -90,7 +103,7 @@ void GridItemView::draw(cairo_t* cr, const Rect& bounds) {
 
     if (m_title_dirty || width_changed) {
         pango_layout_set_text(title_layout, m_title.c_str(), -1);
-        PangoFontDescription* title_desc = get_font_desc(font_family, font_size);
+        PangoFontDescription* title_desc = get_font_desc(font_family, font_size, m_title_bold);
         pango_layout_set_font_description(title_layout, title_desc);
         pango_layout_set_alignment(title_layout, PANGO_ALIGN_CENTER);
         pango_layout_set_width(title_layout, text_max_w * PANGO_SCALE);
@@ -169,10 +182,17 @@ void GridItemView::draw(cairo_t* cr, const Rect& bounds) {
 
     // 3. Render Title
     cairo_move_to(cr, bounds.x + horiz_padding, title_y);
-    cairo_set_source_rgba(cr, config->colors.on_surface.r,
-                              config->colors.on_surface.g,
-                              config->colors.on_surface.b,
-                              config->colors.on_surface.a);
+    if (m_highlight_title) {
+        cairo_set_source_rgba(cr, config->colors.primary.r,
+                                  config->colors.primary.g,
+                                  config->colors.primary.b,
+                                  1.0f);
+    } else {
+        cairo_set_source_rgba(cr, config->colors.on_surface.r,
+                                  config->colors.on_surface.g,
+                                  config->colors.on_surface.b,
+                                  config->colors.on_surface.a);
+    }
     pango_cairo_show_layout(cr, title_layout);
 
     // 4. Render Subtitle

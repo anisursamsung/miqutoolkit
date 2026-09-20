@@ -31,6 +31,12 @@ public:
     void set_corner_radius(int radius) { m_corner_radius = radius; }
     int get_corner_radius() const { return m_corner_radius; }
 
+    void set_title_bold(bool bold);
+    bool is_title_bold() const { return m_title_bold; }
+
+    void set_highlight_title(bool highlight);
+    bool is_title_highlighted() const { return m_highlight_title; }
+
     void set_highlight_subtitle(bool highlight) { m_highlight_subtitle = highlight; }
     bool is_subtitle_highlighted() const { return m_highlight_subtitle; }
 
@@ -43,6 +49,8 @@ private:
     bool m_is_image = false;
     ImageQuality m_quality = ImageQuality::FullOriginal;
     int m_corner_radius = 6;
+    bool m_title_bold = false;
+    bool m_highlight_title = false;
     bool m_highlight_subtitle = false;
 
     // Retained Pango & View caches for instant redraws
@@ -93,6 +101,16 @@ public:
 
     std::shared_ptr<GridItemViewBuilder> cornerRadius(int r) {
         m_view->set_corner_radius(r);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<GridItemViewBuilder> titleBold(bool bold) {
+        m_view->set_title_bold(bold);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<GridItemViewBuilder> highlightTitle(bool hl) {
+        m_view->set_highlight_title(hl);
         return shared_from_this();
     }
 
