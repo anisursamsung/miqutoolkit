@@ -169,7 +169,7 @@ bool ScrollView::on_scroll(double delta) {
     if (!is_visible() || m_max_scroll <= 0.0) return false;
 
     double old_scroll = m_scroll_y;
-    m_scroll_y = std::clamp(m_scroll_y + delta * 2.2, 0.0, m_max_scroll);
+    m_scroll_y = std::clamp(m_scroll_y + delta * 30.0, 0.0, m_max_scroll);
 
     if (m_scroll_y != old_scroll) {
         if (m_window) m_window->schedule_redraw();
