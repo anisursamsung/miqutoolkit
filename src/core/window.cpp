@@ -664,14 +664,33 @@ void Window::request_close() {
             engine->get_foreign_toplevel_manager();
             auto* wm = WindowManager::get();
             if (wm && wm->is_supported()) {
+                // 1. Prioritize active window if it matches our app_id
+                const auto* active = wm->get_active_window();
+                if (active && (m_app_id.empty() || active->app_id == m_app_id)) {
+                    const_cast<WindowInfo*>(active)->close();
+                    return;
+                }
+
                 auto windows = wm->get_windows();
+                // 2. Match by both title and app_id
+                if (!m_title.empty()) {
+                    for (auto& win : windows) {
+                        if (win.title == m_title && (m_app_id.empty() || win.app_id == m_app_id)) {
+                            win.close();
+                            return;
+                        }
+                    }
+                }
+
+                // 3. Fallback: match by app_id
                 for (auto& win : windows) {
                     if (!m_app_id.empty() && win.app_id == m_app_id) {
                         win.close();
                         return;
                     }
                 }
-                const auto* active = wm->get_active_window();
+
+                // 4. Fallback: any active window
                 if (active) {
                     const_cast<WindowInfo*>(active)->close();
                     return;
