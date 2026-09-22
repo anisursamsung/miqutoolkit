@@ -62,6 +62,9 @@ protected:
     Color m_stroke_color = Color::transparent();
     int m_corner_radius = 0;
     bool m_pressed = false;
+
+    std::shared_ptr<View> m_touch_target;
+    Rect m_touch_target_bounds;
 };
 
 } // namespace miqu

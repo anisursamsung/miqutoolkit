@@ -29,6 +29,7 @@ static std::mutex s_cache_mutex;
 static std::list<std::pair<std::string, cairo_surface_t*>> s_surface_lru;
 static std::unordered_map<std::string, std::list<std::pair<std::string, cairo_surface_t*>>::iterator> s_surface_cache;
 static std::unordered_map<std::string, std::string> s_path_cache;
+static std::unordered_map<std::string, std::pair<int, int>> s_dimension_cache;
 
 static std::mutex s_pending_mutex;
 static std::unordered_set<std::string> s_pending_thumbnails;
@@ -55,11 +56,35 @@ void ImageView::clear_cache() {
         s_surface_lru.clear();
         s_surface_cache.clear();
         s_path_cache.clear();
+        s_dimension_cache.clear();
     }
     {
         std::lock_guard<std::mutex> lock(s_theme_hierarchy_mutex);
         s_cached_theme_search_dirs.clear();
     }
+}
+
+static bool get_image_dimensions(const std::string& file_path, int& out_w, int& out_h) {
+    if (file_path.empty()) return false;
+    {
+        std::lock_guard<std::mutex> lock(s_cache_mutex);
+        auto it = s_dimension_cache.find(file_path);
+        if (it != s_dimension_cache.end()) {
+            out_w = it->second.first;
+            out_h = it->second.second;
+            return true;
+        }
+    }
+
+    int w = 0, h = 0;
+    if (gdk_pixbuf_get_file_info(file_path.c_str(), &w, &h) && w > 0 && h > 0) {
+        std::lock_guard<std::mutex> lock(s_cache_mutex);
+        s_dimension_cache[file_path] = {w, h};
+        out_w = w;
+        out_h = h;
+        return true;
+    }
+    return false;
 }
 
 static std::vector<std::string> get_icon_base_roots() {
@@ -598,7 +623,7 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
 
     if (fit_mode == FitMode::Tile) {
         int orig_w = 0, orig_h = 0;
-        if (gdk_pixbuf_get_file_info(file_to_decode.c_str(), &orig_w, &orig_h) && orig_w > 0 && orig_h > 0) {
+        if (get_image_dimensions(file_to_decode, orig_w, orig_h) && orig_w > 0 && orig_h > 0) {
             req_w = orig_w;
             req_h = orig_h;
         } else {
@@ -616,7 +641,7 @@ static cairo_surface_t* load_surface(const std::string& path_or_name, int box_w,
         preserve_aspect = FALSE;
     } else if (fit_mode == FitMode::Cover) {
         int orig_w = 0, orig_h = 0;
-        if (gdk_pixbuf_get_file_info(file_to_decode.c_str(), &orig_w, &orig_h) && orig_w > 0 && orig_h > 0) {
+        if (get_image_dimensions(file_to_decode, orig_w, orig_h) && orig_w > 0 && orig_h > 0) {
             double scale = std::max(static_cast<double>(box_w) / orig_w, static_cast<double>(box_h) / orig_h);
             req_w = std::max(1, static_cast<int>(std::round(orig_w * scale)));
             req_h = std::max(1, static_cast<int>(std::round(orig_h * scale)));
@@ -709,6 +734,23 @@ void ImageView::preload_surface(const std::string& source, int target_size) {
 #define M_PI 3.14159265358979323846
 #endif
 
+ImageView::~ImageView() {
+    invalidate_surface_cache();
+}
+
+void ImageView::invalidate_surface_cache() {
+    if (m_cached_surface) {
+        cairo_surface_destroy(m_cached_surface);
+        m_cached_surface = nullptr;
+    }
+    m_cached_w = 0;
+    m_cached_h = 0;
+    m_cached_source.clear();
+    m_cached_fit = FitMode::Contain;
+    m_cached_quality = ImageQuality::FullOriginal;
+    m_cached_target_size = 0;
+}
+
 void ImageView::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
@@ -752,7 +794,27 @@ void ImageView::draw(cairo_t* cr, const Rect& bounds) {
         cairo_restore(cr);
     }
 
-    cairo_surface_t* surf = load_surface(m_source, draw_w, draw_h, m_fit_mode, m_target_size, m_quality);
+    cairo_surface_t* surf = nullptr;
+    if (m_cached_surface && m_cached_source == m_source &&
+        m_cached_w == draw_w && m_cached_h == draw_h &&
+        m_cached_fit == m_fit_mode && m_cached_quality == m_quality &&
+        m_cached_target_size == m_target_size) {
+        surf = m_cached_surface;
+    } else {
+        invalidate_surface_cache();
+        cairo_surface_t* loaded = load_surface(m_source, draw_w, draw_h, m_fit_mode, m_target_size, m_quality);
+        if (loaded) {
+            m_cached_surface = cairo_surface_reference(loaded);
+            m_cached_w = draw_w;
+            m_cached_h = draw_h;
+            m_cached_source = m_source;
+            m_cached_fit = m_fit_mode;
+            m_cached_quality = m_quality;
+            m_cached_target_size = m_target_size;
+            surf = m_cached_surface;
+        }
+    }
+
     if (!surf) {
         if (!m_source.empty()) {
             auto config = Config::get();

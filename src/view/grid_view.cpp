@@ -183,7 +183,7 @@ void GridView::draw(cairo_t* cr, const Rect& bounds) {
         bool is_selected = (i == m_selected_index);
         bool is_hovered = (i == m_hovered_index);
 
-        double cell_radius = config->metrics.corner_radius > 0 ? static_cast<double>(config->metrics.corner_radius) : 12.0;
+        double cell_radius = static_cast<double>(std::max(0, config->metrics.corner_radius));
 
         // Tile background (Selected / Hovered highlight)
         if (is_selected) {

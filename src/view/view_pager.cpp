@@ -111,6 +111,18 @@ bool ViewPager::on_key(const KeyPressEvent& event) {
     return false;
 }
 
+bool ViewPager::on_touch(const TouchEvent& event, const Rect& bounds) {
+    if (!is_visible()) return false;
+    Rect content_rect = get_content_rect(bounds);
+    if (m_current_page >= 0 && m_current_page < static_cast<int>(m_pages.size())) {
+        auto& active_page = m_pages[m_current_page];
+        if (active_page && active_page->is_visible()) {
+            return active_page->on_touch(event, content_rect);
+        }
+    }
+    return false;
+}
+
 ViewPagerBuilder::ViewPagerBuilder() : m_view(std::make_shared<ViewPager>()) {}
 
 } // namespace miqu

@@ -40,7 +40,22 @@ public:
     virtual bool on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) { return false; }
     virtual bool on_key(const KeyPressEvent& event) { return false; }
     virtual bool on_scroll(double delta) { return false; }
-    virtual bool on_touch(const TouchEvent& event, const Rect& bounds) { (void)event; (void)bounds; return false; }
+    virtual bool on_touch(const TouchEvent& event, const Rect& bounds) {
+        if (!is_visible()) return false;
+        int lx = static_cast<int>(event.x);
+        int ly = static_cast<int>(event.y);
+        switch (event.phase) {
+            case TouchPhase::Down:
+                on_mouse_move(lx, ly, bounds);
+                return on_mouse_button(lx, ly, MouseButton::Left, true, bounds);
+            case TouchPhase::Motion:
+                return on_mouse_move(lx, ly, bounds);
+            case TouchPhase::Up:
+            case TouchPhase::Cancel:
+                return on_mouse_button(lx, ly, MouseButton::Left, false, bounds);
+        }
+        return false;
+    }
 
     // Bounds & Geometry
     void set_bounds(const Rect& r) { m_bounds = r; }

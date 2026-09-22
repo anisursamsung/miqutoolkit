@@ -178,16 +178,45 @@ bool ViewGroup::on_scroll(double delta) {
 bool ViewGroup::on_touch(const TouchEvent& event, const Rect& bounds) {
     if (!is_visible()) return false;
 
-    // Traverse top-to-bottom (reverse order)
-    for (auto it = m_child_entries.rbegin(); it != m_child_entries.rend(); ++it) {
-        if (it->view && it->view->is_visible()) {
-            if (!it->allocated_bounds.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
-                continue;
-            }
-            if (it->view->on_touch(event, it->allocated_bounds)) {
-                return true;
+    if (event.phase == TouchPhase::Down) {
+        m_touch_target = nullptr;
+        // Traverse top-to-bottom (reverse order)
+        for (auto it = m_child_entries.rbegin(); it != m_child_entries.rend(); ++it) {
+            if (it->view && it->view->is_visible()) {
+                if (!it->allocated_bounds.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
+                    continue;
+                }
+                if (it->view->on_touch(event, it->allocated_bounds)) {
+                    m_touch_target = it->view;
+                    m_touch_target_bounds = it->allocated_bounds;
+                    return true;
+                }
             }
         }
+        if (m_on_click && bounds.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
+            return View::on_touch(event, bounds);
+        }
+        return false;
+    }
+
+    if (m_touch_target) {
+        Rect target_bounds = m_touch_target_bounds;
+        for (const auto& entry : m_child_entries) {
+            if (entry.view == m_touch_target) {
+                target_bounds = entry.allocated_bounds;
+                break;
+            }
+        }
+
+        bool handled = m_touch_target->on_touch(event, target_bounds);
+        if (event.phase == TouchPhase::Up || event.phase == TouchPhase::Cancel) {
+            m_touch_target = nullptr;
+        }
+        return handled;
+    }
+
+    if (m_on_click) {
+        return View::on_touch(event, bounds);
     }
 
     return false;

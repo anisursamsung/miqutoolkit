@@ -39,15 +39,15 @@ Toolbar::Toolbar() {
     m_btn_back = std::make_shared<ImageButton>(icons::BACK);
     m_btn_back->set_circle(true);
     m_btn_back->set_icon_size(20);
-    m_btn_back->set_layout_params(LayoutParams(34, 34, Gravity::CenterVertical));
+    m_btn_back->set_layout_params(LayoutParams(40, 40, Gravity::CenterVertical));
     m_btn_back->set_on_click_listener([this]() {
         if (m_on_back) m_on_back();
     });
 
     m_btn_refresh = std::make_shared<ImageButton>(icons::REFRESH);
     m_btn_refresh->set_circle(true);
-    m_btn_refresh->set_icon_size(17);
-    m_btn_refresh->set_layout_params(LayoutParams(34, 34, Gravity::CenterVertical));
+    m_btn_refresh->set_icon_size(18);
+    m_btn_refresh->set_layout_params(LayoutParams(40, 40, Gravity::CenterVertical));
     m_btn_refresh->set_on_click_listener([this]() {
         if (m_on_refresh) m_on_refresh();
     });
@@ -55,7 +55,7 @@ Toolbar::Toolbar() {
     m_btn_menu = std::make_shared<ImageButton>(icons::MENU);
     m_btn_menu->set_circle(true);
     m_btn_menu->set_icon_size(18);
-    m_btn_menu->set_layout_params(LayoutParams(34, 34, Gravity::CenterVertical));
+    m_btn_menu->set_layout_params(LayoutParams(40, 40, Gravity::CenterVertical));
     m_btn_menu->set_on_click_listener([this]() {
         if (m_on_menu) m_on_menu();
     });
@@ -63,7 +63,7 @@ Toolbar::Toolbar() {
     m_btn_close = std::make_shared<ImageButton>(icons::POWER);
     m_btn_close->set_circle(true);
     m_btn_close->set_icon_size(18);
-    m_btn_close->set_layout_params(LayoutParams(34, 34, Gravity::CenterVertical));
+    m_btn_close->set_layout_params(LayoutParams(40, 40, Gravity::CenterVertical));
     m_btn_close->set_on_click_listener([this]() {
         if (m_on_close) {
             m_on_close();
@@ -216,7 +216,7 @@ std::shared_ptr<ImageButton> Toolbar::add_action(const std::string& icon, std::f
     auto btn = std::make_shared<ImageButton>(icon);
     btn->set_circle(true);
     btn->set_icon_size(18);
-    btn->set_layout_params(LayoutParams(34, 34, Gravity::CenterVertical));
+    btn->set_layout_params(LayoutParams(40, 40, Gravity::CenterVertical));
     if (on_click) btn->set_on_click_listener(std::move(on_click));
     m_custom_actions.push_back(btn);
     rebuild_internal_views();
@@ -319,7 +319,7 @@ void Toolbar::draw(cairo_t* cr, const Rect& bounds) {
     };
 
     if (m_back_enabled && m_back_visible && m_btn_back) {
-        place_leading(m_btn_back, 34, 34);
+        place_leading(m_btn_back, 40, 40);
     }
 
     if (!m_icon_text.empty() && m_icon_view) {
@@ -352,21 +352,21 @@ void Toolbar::draw(cairo_t* cr, const Rect& bounds) {
     for (const auto& a : m_custom_actions) {
         if (!a || !a->is_visible()) continue;
         Size sz = a->measure_size(-1);
-        int aw = (a->get_layout_params().width > 0) ? a->get_layout_params().width : (sz.width > 0 ? sz.width : 34);
-        int ah = (a->get_layout_params().height > 0) ? a->get_layout_params().height : (sz.height > 0 ? sz.height : 34);
+        int aw = (a->get_layout_params().width > 0) ? a->get_layout_params().width : (sz.width > 0 ? sz.width : 40);
+        int ah = (a->get_layout_params().height > 0) ? a->get_layout_params().height : (sz.height > 0 ? sz.height : 40);
         trailing_items.push_back({a, aw, ah});
     }
 
     if (m_refresh_visible && m_btn_refresh) {
-        trailing_items.push_back({m_btn_refresh, 34, 34});
+        trailing_items.push_back({m_btn_refresh, 40, 40});
     }
 
     if (m_menu_visible && m_btn_menu) {
-        trailing_items.push_back({m_btn_menu, 34, 34});
+        trailing_items.push_back({m_btn_menu, 40, 40});
     }
 
     if (m_close_visible && m_btn_close) {
-        trailing_items.push_back({m_btn_close, 34, 34});
+        trailing_items.push_back({m_btn_close, 40, 40});
     }
 
     int trailing_total_w = 0;

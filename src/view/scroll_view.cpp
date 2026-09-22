@@ -183,19 +183,21 @@ bool ScrollView::on_touch(const TouchEvent& event, const Rect& bounds) {
     if (!is_visible()) return false;
 
     Rect content_rect = get_content_rect(bounds);
-    if (event.phase == TouchPhase::Down && !content_rect.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
-        return false;
-    }
 
     if (event.phase == TouchPhase::Down) {
+        if (!content_rect.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
+            return false;
+        }
+
         m_touch_id = event.id;
         m_touch_start_x = event.x;
         m_touch_start_y = event.y;
         m_touch_last_y = event.y;
         m_touch_scrolling = false;
+        m_child_touch_target = false;
 
         if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
-            m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+            m_child_touch_target = m_content->on_touch(event, m_child_entries[0].allocated_bounds);
         }
         return true;
     }
@@ -211,14 +213,17 @@ bool ScrollView::on_touch(const TouchEvent& event, const Rect& bounds) {
         if (!m_touch_scrolling) {
             double total_dy = std::abs(event.y - m_touch_start_y);
             double total_dx = std::abs(event.x - m_touch_start_x);
-            if (total_dy > 8.0 && total_dy > total_dx) {
+            if (total_dy > 10.0 && total_dy > total_dx && m_max_scroll > 0.0) {
                 m_touch_scrolling = true;
-                if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
+                if (m_child_touch_target && m_content && m_content->is_visible() && !m_child_entries.empty()) {
                     TouchEvent cancel_event = event;
                     cancel_event.phase = TouchPhase::Cancel;
                     m_content->on_touch(cancel_event, m_child_entries[0].allocated_bounds);
-                    m_content->on_mouse_button(static_cast<int>(event.x), static_cast<int>(event.y), MouseButton::Left, false, m_child_entries[0].allocated_bounds);
+                    m_child_touch_target = false;
                 }
+            } else if (m_child_touch_target && m_content && m_content->is_visible() && !m_child_entries.empty()) {
+                m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+                return true;
             }
         }
 
@@ -230,10 +235,6 @@ bool ScrollView::on_touch(const TouchEvent& event, const Rect& bounds) {
             }
             return true;
         }
-
-        if (!m_touch_scrolling && m_content && m_content->is_visible() && !m_child_entries.empty()) {
-            return m_content->on_touch(event, m_child_entries[0].allocated_bounds);
-        }
         return true;
     }
 
@@ -241,12 +242,14 @@ bool ScrollView::on_touch(const TouchEvent& event, const Rect& bounds) {
         m_touch_id = -1;
         if (m_touch_scrolling) {
             m_touch_scrolling = false;
+            m_child_touch_target = false;
             return true;
         }
 
         m_touch_scrolling = false;
-        if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
-            return m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+        if (m_child_touch_target && m_content && m_content->is_visible() && !m_child_entries.empty()) {
+            m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+            m_child_touch_target = false;
         }
         return true;
     }
@@ -254,8 +257,9 @@ bool ScrollView::on_touch(const TouchEvent& event, const Rect& bounds) {
     if (event.phase == TouchPhase::Cancel) {
         m_touch_id = -1;
         m_touch_scrolling = false;
-        if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
-            return m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+        if (m_child_touch_target && m_content && m_content->is_visible() && !m_child_entries.empty()) {
+            m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+            m_child_touch_target = false;
         }
         return true;
     }

@@ -353,16 +353,14 @@ const struct wl_touch_listener Window::s_touch_listener = {
         double tx = wl_fixed_to_double(x);
         double ty = wl_fixed_to_double(y);
 
-        if (self->m_primary_touch_id == -1) {
-            self->m_primary_touch_id = id;
-            self->m_touch_active = true;
-            self->m_last_x = tx;
-            self->m_last_y = ty;
-        }
+        self->m_primary_touch_id = id;
+        self->m_touch_active = true;
+        self->m_last_x = tx;
+        self->m_last_y = ty;
 
         TouchEvent event{ id, tx, ty, TouchPhase::Down, time };
 
-        // Popup overlay outside dismissal
+        // 1. Popup overlay outside dismissal
         if (self->m_popup_view) {
             if (!self->m_popup_bounds.contains(tx, ty)) {
                 if (!self->m_active_popup || self->m_active_popup->is_dismiss_on_outside_click()) {
@@ -384,22 +382,28 @@ const struct wl_touch_listener Window::s_touch_listener = {
             return;
         }
 
-        // Close on click outside
+        // 2. Close on click outside
         if (self->m_close_on_click_outside && !self->m_allocated_content_bounds.contains(tx, ty)) {
             if (self->m_on_close) self->m_on_close();
             self->close();
             return;
         }
 
+        // 3. Root View
         if (self->m_root_view) {
+            View* prev_focused = self->m_focused_view;
             if (self->m_root_view->on_touch(event, self->m_allocated_content_bounds)) {
                 self->m_touch_consumed_by_view = true;
+                if (prev_focused && self->m_focused_view == prev_focused) {
+                    if (!prev_focused->contains_point(tx, ty)) {
+                        self->clear_focus();
+                    }
+                }
                 self->schedule_redraw();
                 return;
             }
             // Fallback mouse emulation
             self->m_touch_consumed_by_view = false;
-            View* prev_focused = self->m_focused_view;
             self->m_root_view->on_mouse_move(tx, ty, self->m_allocated_content_bounds);
             if (self->m_root_view->on_mouse_button(tx, ty, MouseButton::Left, true, self->m_allocated_content_bounds)) {
                 self->schedule_redraw();
@@ -421,7 +425,7 @@ const struct wl_touch_listener Window::s_touch_listener = {
                 if (self->m_popup_view->on_touch(event, self->m_popup_bounds)) {
                     self->schedule_redraw();
                 }
-            } else if (id == self->m_primary_touch_id) {
+            } else {
                 if (self->m_popup_view->on_mouse_button(self->m_last_x, self->m_last_y, MouseButton::Left, false, self->m_popup_bounds)) {
                     self->schedule_redraw();
                 }
@@ -431,28 +435,24 @@ const struct wl_touch_listener Window::s_touch_listener = {
                 if (self->m_root_view->on_touch(event, self->m_allocated_content_bounds)) {
                     self->schedule_redraw();
                 }
-            } else if (id == self->m_primary_touch_id) {
+            } else {
                 if (self->m_root_view->on_mouse_button(self->m_last_x, self->m_last_y, MouseButton::Left, false, self->m_allocated_content_bounds)) {
                     self->schedule_redraw();
                 }
             }
         }
 
-        if (id == self->m_primary_touch_id) {
-            self->m_primary_touch_id = -1;
-            self->m_touch_active = false;
-            self->m_touch_consumed_by_view = false;
-        }
+        self->m_primary_touch_id = -1;
+        self->m_touch_active = false;
+        self->m_touch_consumed_by_view = false;
     },
     .motion = [](void* data, struct wl_touch*, uint32_t time, int32_t id, wl_fixed_t x, wl_fixed_t y) {
         auto* self = static_cast<Window*>(data);
         double tx = wl_fixed_to_double(x);
         double ty = wl_fixed_to_double(y);
 
-        if (id == self->m_primary_touch_id) {
-            self->m_last_x = tx;
-            self->m_last_y = ty;
-        }
+        self->m_last_x = tx;
+        self->m_last_y = ty;
 
         TouchEvent event{ id, tx, ty, TouchPhase::Motion, time };
 
@@ -461,7 +461,7 @@ const struct wl_touch_listener Window::s_touch_listener = {
                 if (self->m_popup_view->on_touch(event, self->m_popup_bounds)) {
                     self->schedule_redraw();
                 }
-            } else if (id == self->m_primary_touch_id) {
+            } else {
                 if (self->m_popup_view->on_mouse_move(tx, ty, self->m_popup_bounds)) {
                     self->schedule_redraw();
                 }
@@ -471,7 +471,7 @@ const struct wl_touch_listener Window::s_touch_listener = {
                 if (self->m_root_view->on_touch(event, self->m_allocated_content_bounds)) {
                     self->schedule_redraw();
                 }
-            } else if (id == self->m_primary_touch_id) {
+            } else {
                 if (self->m_root_view->on_mouse_move(tx, ty, self->m_allocated_content_bounds)) {
                     self->schedule_redraw();
                 }

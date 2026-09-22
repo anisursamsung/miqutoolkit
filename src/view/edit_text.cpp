@@ -61,8 +61,7 @@ void EditText::draw(cairo_t* cr, const Rect& bounds) {
     if (draw_w <= 0 || draw_h <= 0) return;
 
     cairo_save(cr);
-
-    double radius = static_cast<double>(config->metrics.corner_radius > 0 ? config->metrics.corner_radius : 12);
+    double radius = static_cast<double>(std::max(0, config->metrics.corner_radius));
 
     if (m_draw_background) {
         // Background input pill / card

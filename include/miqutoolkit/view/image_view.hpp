@@ -22,23 +22,50 @@ class ImageView : public View {
 public:
     ImageView() = default;
     explicit ImageView(std::string source) : m_source(std::move(source)) {}
+    ~ImageView() override;
+
+    ImageView(const ImageView&) = delete;
+    ImageView& operator=(const ImageView&) = delete;
+    ImageView(ImageView&&) = delete;
+    ImageView& operator=(ImageView&&) = delete;
 
     void set_image_resource(std::string source) {
         if (m_source != source) {
             m_source = std::move(source);
+            invalidate_surface_cache();
             request_redraw();
         }
     }
     const std::string& get_image_resource() const { return m_source; }
 
-    void set_target_size(int size) { m_target_size = size; request_redraw(); }
+    void set_target_size(int size) {
+        if (m_target_size != size) {
+            m_target_size = size;
+            invalidate_surface_cache();
+            request_redraw();
+        }
+    }
     int get_target_size() const { return m_target_size; }
 
-    void set_fit_mode(FitMode mode) { m_fit_mode = mode; request_redraw(); }
+    void set_fit_mode(FitMode mode) {
+        if (m_fit_mode != mode) {
+            m_fit_mode = mode;
+            invalidate_surface_cache();
+            request_redraw();
+        }
+    }
     FitMode get_fit_mode() const { return m_fit_mode; }
 
-    void set_quality_mode(ImageQuality quality) { m_quality = quality; request_redraw(); }
+    void set_quality_mode(ImageQuality quality) {
+        if (m_quality != quality) {
+            m_quality = quality;
+            invalidate_surface_cache();
+            request_redraw();
+        }
+    }
     ImageQuality get_quality_mode() const { return m_quality; }
+
+    void invalidate_surface_cache();
 
     void set_corner_radius(int radius) { m_corner_radius = radius; request_redraw(); }
     int get_corner_radius() const { return m_corner_radius; }
@@ -83,6 +110,14 @@ private:
     double m_rotation_degrees = 0.0;
     float m_opacity = 1.0f;
     Color m_bg_color = Color::transparent();
+
+    cairo_surface_t* m_cached_surface = nullptr;
+    int m_cached_w = 0;
+    int m_cached_h = 0;
+    std::string m_cached_source;
+    FitMode m_cached_fit = FitMode::Contain;
+    ImageQuality m_cached_quality = ImageQuality::FullOriginal;
+    int m_cached_target_size = 0;
 };
 
 class ImageViewBuilder : public std::enable_shared_from_this<ImageViewBuilder> {

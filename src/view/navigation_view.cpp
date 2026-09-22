@@ -239,6 +239,16 @@ bool NavigationView::on_scroll(double delta) {
     return false;
 }
 
+bool NavigationView::on_touch(const TouchEvent& event, const Rect& bounds) {
+    if (!is_visible() || m_stack.empty()) return false;
+    Rect content_rect = get_content_rect(bounds);
+    auto& top = m_stack.back();
+    if (top.view && top.view->is_visible()) {
+        return top.view->on_touch(event, content_rect);
+    }
+    return false;
+}
+
 bool NavigationView::on_key(const KeyPressEvent& event) {
     if (!is_visible() || m_stack.empty()) return false;
     auto& top = m_stack.back();
