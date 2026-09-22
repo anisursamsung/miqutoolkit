@@ -7,7 +7,7 @@
 
 namespace miqu {
 
-class SpinnerPopupView;
+class PopupMenu;
 
 class Spinner : public View {
 public:
@@ -103,7 +103,7 @@ private:
     bool m_is_open = false;
     Rect m_last_drawn_bounds;
 
-    std::shared_ptr<SpinnerPopupView> m_popup_view;
+    std::shared_ptr<PopupMenu> m_popup_menu;
     std::function<void(int, const std::string&)> m_on_item_selected;
 };
 

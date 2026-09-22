@@ -22,6 +22,7 @@ Size ImageButton::measure_size() const {
 void ImageButton::draw(cairo_t* cr, const Rect& bounds) {
     if (!is_visible() || !cr || bounds.width <= 0 || bounds.height <= 0) return;
 
+    m_bounds = bounds;
     auto config = Config::get();
 
     int draw_x = bounds.x;

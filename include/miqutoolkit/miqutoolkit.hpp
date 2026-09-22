@@ -40,6 +40,8 @@
 #include "miqutoolkit/view/toolbar.hpp"
 #include "miqutoolkit/view/bottom_navigation_view.hpp"
 #include "miqutoolkit/view/spinner.hpp"
+#include "miqutoolkit/view/popup_window.hpp"
+#include "miqutoolkit/view/popup_menu.hpp"
 
 // System Services
 #include "miqutoolkit/system/window_manager.hpp"

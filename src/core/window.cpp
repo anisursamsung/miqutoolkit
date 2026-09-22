@@ -1,4 +1,5 @@
 #include "miqutoolkit/core/window.hpp"
+#include "miqutoolkit/view/popup_window.hpp"
 #include "miqutoolkit/core/app_engine.hpp"
 #include "miqutoolkit/core/config.hpp"
 #include "miqutoolkit/system/window_manager.hpp"
@@ -164,8 +165,10 @@ const struct wl_pointer_listener Window::s_pointer_listener = {
 
         if (self->m_popup_view) {
             if (pressed && !self->m_popup_bounds.contains(self->m_last_x, self->m_last_y)) {
-                self->dismiss_popup();
-                return;
+                if (!self->m_active_popup || self->m_active_popup->is_dismiss_on_outside_click()) {
+                    self->dismiss_popup();
+                    return;
+                }
             }
             if (self->m_popup_view->on_mouse_button(self->m_last_x, self->m_last_y, mb, pressed, self->m_popup_bounds)) {
                 self->schedule_redraw();
@@ -291,8 +294,10 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
                 return;
             }
             if (pressed && sym == XKB_KEY_Escape) {
-                self->dismiss_popup();
-                return;
+                if (!self->m_active_popup || self->m_active_popup->is_dismiss_on_escape()) {
+                    self->dismiss_popup();
+                    return;
+                }
             }
         }
 
@@ -605,7 +610,34 @@ void Window::render_frame() {
     m_rendering = false;
 }
 
+void Window::show_popup(std::shared_ptr<PopupWindow> popup) {
+    if (m_active_popup && m_active_popup != popup) {
+        auto old_popup = m_active_popup;
+        m_active_popup = nullptr;
+        m_popup_view = nullptr;
+        old_popup->notify_dismissed();
+    }
+    m_active_popup = popup;
+    if (m_active_popup) {
+        m_popup_view = m_active_popup->get_container_view();
+        m_popup_bounds = m_active_popup->get_bounds();
+        if (m_popup_view) {
+            m_popup_view->set_window(this);
+            m_popup_view->set_bounds(m_popup_bounds);
+        }
+    } else {
+        m_popup_view = nullptr;
+    }
+    schedule_redraw();
+}
+
 void Window::show_popup(std::shared_ptr<View> popup, const Rect& bounds) {
+    if (m_active_popup) {
+        auto old_popup = m_active_popup;
+        m_active_popup = nullptr;
+        m_popup_view = nullptr;
+        old_popup->notify_dismissed();
+    }
     m_popup_view = popup;
     m_popup_bounds = bounds;
     if (m_popup_view) {
@@ -616,13 +648,21 @@ void Window::show_popup(std::shared_ptr<View> popup, const Rect& bounds) {
 }
 
 void Window::dismiss_popup() {
-    if (m_popup_view) {
-        m_popup_view = nullptr;
+    auto old_popup = m_active_popup;
+    auto old_view = m_popup_view;
+    m_active_popup = nullptr;
+    m_popup_view = nullptr;
+
+    if (old_popup) {
+        old_popup->notify_dismissed();
+    }
+    if (old_view) {
         schedule_redraw();
     }
 }
 
 void Window::close() {
+    dismiss_popup();
     auto* engine = AppEngine::instance();
     if (engine) {
         engine->unregister_window(shared_from_this());

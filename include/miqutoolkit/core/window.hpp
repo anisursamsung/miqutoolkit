@@ -22,6 +22,7 @@ struct ext_session_lock_surface_v1_listener;
 namespace miqu {
 
 class AppEngine;
+class PopupWindow;
 
 enum class WindowRole {
     Toplevel,        // Standard desktop app window (xdg-shell)
@@ -98,9 +99,11 @@ public:
     int get_width() const { return m_width; }
     int get_height() const { return m_height; }
     // Popup overlay support
+    void show_popup(std::shared_ptr<PopupWindow> popup);
     void show_popup(std::shared_ptr<View> popup, const Rect& bounds);
     void dismiss_popup();
-    bool has_popup() const { return m_popup_view != nullptr; }
+    bool has_popup() const { return m_popup_view != nullptr || m_active_popup != nullptr; }
+    std::shared_ptr<PopupWindow> get_active_popup() const { return m_active_popup; }
     std::shared_ptr<View> get_popup() const { return m_popup_view; }
     const Rect& get_popup_bounds() const { return m_popup_bounds; }
 
@@ -170,6 +173,7 @@ private:
 
     std::unique_ptr<ShmPool> m_shm_pool;
     std::shared_ptr<View> m_root_view;
+    std::shared_ptr<PopupWindow> m_active_popup;
     std::shared_ptr<View> m_popup_view;
     Rect m_popup_bounds;
 

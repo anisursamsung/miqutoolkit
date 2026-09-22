@@ -124,6 +124,7 @@ void RelativeLayout::draw(cairo_t* cr, const Rect& bounds) {
                 }
 
                 Rect child_rect(child_x, child_y, child_w, child_h);
+                child->set_bounds(child_rect);
                 resolved_bounds[child.get()] = child_rect;
                 m_child_entries.push_back({child, child_rect});
 
@@ -158,6 +159,7 @@ void RelativeLayout::draw(cairo_t* cr, const Rect& bounds) {
             else if (params.center_vertical || params.center_in_parent) child_y = origin_y + (avail_h - child_h) / 2;
 
             Rect child_rect(child_x, child_y, child_w, child_h);
+            child->set_bounds(child_rect);
             resolved_bounds[child.get()] = child_rect;
             m_child_entries.push_back({child, child_rect});
         }

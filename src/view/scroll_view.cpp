@@ -72,6 +72,7 @@ void ScrollView::draw(cairo_t* cr, const Rect& bounds) {
     Rect child_bounds(child_x, child_y, child_w, child_h);
 
     m_child_entries.clear();
+    m_content->set_bounds(child_bounds);
     m_child_entries.push_back({m_content, child_bounds});
     m_content->draw(cr, child_bounds);
 

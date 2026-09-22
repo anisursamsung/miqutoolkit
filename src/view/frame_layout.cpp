@@ -110,6 +110,7 @@ void FrameLayout::draw(cairo_t* cr, const Rect& bounds) {
         }
 
         Rect child_bounds(child_x, child_y, child_w, child_h);
+        child->set_bounds(child_bounds);
         m_child_entries.push_back({child, child_bounds});
         child->draw(cr, child_bounds);
     }

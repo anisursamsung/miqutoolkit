@@ -236,6 +236,7 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
             }
 
             Rect child_bounds(child_x, child_y, child_w, child_h);
+            child->set_bounds(child_bounds);
             m_child_entries.push_back({child, child_bounds});
 
             if (!has_clip || (clip_x2 <= clip_x1) ||
@@ -284,6 +285,7 @@ void LinearLayout::draw(cairo_t* cr, const Rect& bounds) {
             }
 
             Rect child_bounds(child_x, child_y, child_w, child_h);
+            child->set_bounds(child_bounds);
             m_child_entries.push_back({child, child_bounds});
 
             if (!has_clip || (clip_y2 <= clip_y1) ||
