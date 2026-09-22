@@ -56,4 +56,20 @@ struct KeyPressEvent {
     bool has_super() const { return (modifiers & static_cast<uint32_t>(KeyboardModifier::Super)) != 0; }
 };
 
+enum class TouchPhase {
+    Down,
+    Motion,
+    Up,
+    Cancel,
+};
+
+struct TouchEvent {
+    int32_t id = 0;
+    double x = 0.0;
+    double y = 0.0;
+    TouchPhase phase = TouchPhase::Down;
+    uint32_t time = 0;
+};
+
 } // namespace miqu
+

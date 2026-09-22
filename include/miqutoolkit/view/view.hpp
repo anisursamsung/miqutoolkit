@@ -40,6 +40,7 @@ public:
     virtual bool on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) { return false; }
     virtual bool on_key(const KeyPressEvent& event) { return false; }
     virtual bool on_scroll(double delta) { return false; }
+    virtual bool on_touch(const TouchEvent& event, const Rect& bounds) { (void)event; (void)bounds; return false; }
 
     // Bounds & Geometry
     void set_bounds(const Rect& r) { m_bounds = r; }

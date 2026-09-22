@@ -122,6 +122,7 @@ private:
     static const struct ::xdg_toplevel_listener s_xdg_toplevel_listener;
     static const struct wl_pointer_listener s_pointer_listener;
     static const struct wl_keyboard_listener s_keyboard_listener;
+    static const struct wl_touch_listener s_touch_listener;
     static const struct wl_callback_listener s_frame_listener;
 
     WindowRole m_role = WindowRole::Toplevel;
@@ -160,6 +161,10 @@ private:
     static const struct ::ext_session_lock_surface_v1_listener s_lock_surface_listener;
     struct wl_pointer* m_pointer = nullptr;
     struct wl_keyboard* m_keyboard = nullptr;
+    struct wl_touch* m_touch = nullptr;
+    int32_t m_primary_touch_id = -1;
+    bool m_touch_active = false;
+    bool m_touch_consumed_by_view = false;
     struct wl_callback* m_frame_callback = nullptr;
     struct wl_cursor_theme* m_cursor_theme = nullptr;
     struct wl_surface* m_cursor_surface = nullptr;

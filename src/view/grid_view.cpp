@@ -347,4 +347,91 @@ bool GridView::on_key(const KeyPressEvent& event) {
     return false;
 }
 
+bool GridView::on_touch(const TouchEvent& event, const Rect& bounds) {
+    if (!is_visible()) return false;
+
+    if (event.phase == TouchPhase::Down && !bounds.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
+        return false;
+    }
+
+    if (event.phase == TouchPhase::Down) {
+        m_touch_id = event.id;
+        m_touch_start_x = event.x;
+        m_touch_start_y = event.y;
+        m_touch_last_y = event.y;
+        m_touch_scrolling = false;
+        m_hovered_index = item_at(static_cast<int>(event.x), static_cast<int>(event.y), bounds);
+        if (get_window()) get_window()->schedule_redraw();
+        return true;
+    }
+
+    if (event.id != m_touch_id) return false;
+
+    if (event.phase == TouchPhase::Motion) {
+        double dy = event.y - m_touch_last_y;
+        m_touch_last_y = event.y;
+
+        if (!m_touch_scrolling) {
+            double total_dy = std::abs(event.y - m_touch_start_y);
+            double total_dx = std::abs(event.x - m_touch_start_x);
+            if (total_dy > 8.0 && total_dy > total_dx) {
+                m_touch_scrolling = true;
+                m_hovered_index = -1;
+            }
+        }
+
+        if (m_touch_scrolling) {
+            int cell_w = 0;
+            int cols = compute_columns(m_last_width, cell_w);
+            int total_rows = (static_cast<int>(get_item_count()) + cols - 1) / cols;
+            int row_stride = m_cell_h + m_space_y;
+            double content_h = total_rows * row_stride - m_space_y;
+            double max_scroll = std::max(0.0, content_h - m_last_height);
+            if (max_scroll > 0.0) {
+                double old_scroll = m_scroll_y;
+                m_scroll_y = std::clamp(m_scroll_y - dy, 0.0, max_scroll);
+                if (m_scroll_y != old_scroll && get_window()) {
+                    get_window()->schedule_redraw();
+                }
+            }
+            return true;
+        }
+        return true;
+    }
+
+    if (event.phase == TouchPhase::Up) {
+        m_touch_id = -1;
+        if (m_touch_scrolling) {
+            m_touch_scrolling = false;
+            m_hovered_index = -1;
+            if (get_window()) get_window()->schedule_redraw();
+            return true;
+        }
+
+        m_touch_scrolling = false;
+        int idx = item_at(static_cast<int>(event.x), static_cast<int>(event.y), bounds);
+        if (idx >= 0 && idx < static_cast<int>(get_item_count())) {
+            m_selected_index = idx;
+            m_hovered_index = idx;
+            if (m_on_item_click) {
+                m_on_item_click(idx, get_item_at(static_cast<size_t>(idx)));
+            }
+            if (get_window()) get_window()->schedule_redraw();
+            return true;
+        }
+        return true;
+    }
+
+    if (event.phase == TouchPhase::Cancel) {
+        m_touch_id = -1;
+        m_touch_scrolling = false;
+        m_hovered_index = -1;
+        if (get_window()) get_window()->schedule_redraw();
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace miqu
+

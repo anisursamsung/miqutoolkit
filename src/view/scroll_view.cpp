@@ -179,4 +179,89 @@ bool ScrollView::on_scroll(double delta) {
     return false;
 }
 
+bool ScrollView::on_touch(const TouchEvent& event, const Rect& bounds) {
+    if (!is_visible()) return false;
+
+    Rect content_rect = get_content_rect(bounds);
+    if (event.phase == TouchPhase::Down && !content_rect.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
+        return false;
+    }
+
+    if (event.phase == TouchPhase::Down) {
+        m_touch_id = event.id;
+        m_touch_start_x = event.x;
+        m_touch_start_y = event.y;
+        m_touch_last_y = event.y;
+        m_touch_scrolling = false;
+
+        if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
+            m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+        }
+        return true;
+    }
+
+    if (event.id != m_touch_id) {
+        return false;
+    }
+
+    if (event.phase == TouchPhase::Motion) {
+        double dy = event.y - m_touch_last_y;
+        m_touch_last_y = event.y;
+
+        if (!m_touch_scrolling) {
+            double total_dy = std::abs(event.y - m_touch_start_y);
+            double total_dx = std::abs(event.x - m_touch_start_x);
+            if (total_dy > 8.0 && total_dy > total_dx) {
+                m_touch_scrolling = true;
+                if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
+                    TouchEvent cancel_event = event;
+                    cancel_event.phase = TouchPhase::Cancel;
+                    m_content->on_touch(cancel_event, m_child_entries[0].allocated_bounds);
+                    m_content->on_mouse_button(static_cast<int>(event.x), static_cast<int>(event.y), MouseButton::Left, false, m_child_entries[0].allocated_bounds);
+                }
+            }
+        }
+
+        if (m_touch_scrolling && m_max_scroll > 0.0) {
+            double old_scroll = m_scroll_y;
+            m_scroll_y = std::clamp(m_scroll_y - dy, 0.0, m_max_scroll);
+            if (m_scroll_y != old_scroll && m_window) {
+                m_window->schedule_redraw();
+            }
+            return true;
+        }
+
+        if (!m_touch_scrolling && m_content && m_content->is_visible() && !m_child_entries.empty()) {
+            return m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+        }
+        return true;
+    }
+
+    if (event.phase == TouchPhase::Up) {
+        m_touch_id = -1;
+        if (m_touch_scrolling) {
+            m_touch_scrolling = false;
+            return true;
+        }
+
+        m_touch_scrolling = false;
+        if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
+            return m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+        }
+        return true;
+    }
+
+    if (event.phase == TouchPhase::Cancel) {
+        m_touch_id = -1;
+        m_touch_scrolling = false;
+        if (m_content && m_content->is_visible() && !m_child_entries.empty()) {
+            return m_content->on_touch(event, m_child_entries[0].allocated_bounds);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace miqu
+

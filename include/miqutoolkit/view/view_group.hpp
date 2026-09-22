@@ -42,6 +42,7 @@ public:
     bool on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) override;
     bool on_key(const KeyPressEvent& event) override;
     bool on_scroll(double delta) override;
+    bool on_touch(const TouchEvent& event, const Rect& bounds) override;
 
 protected:
     void draw_background(cairo_t* cr, const Rect& bounds) const;

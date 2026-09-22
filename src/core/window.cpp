@@ -120,6 +120,14 @@ void Window::update_seat_capabilities(uint32_t caps) {
         wl_keyboard_destroy(m_keyboard);
         m_keyboard = nullptr;
     }
+
+    if ((caps & WL_SEAT_CAPABILITY_TOUCH) && !m_touch) {
+        m_touch = wl_seat_get_touch(seat);
+        wl_touch_add_listener(m_touch, &s_touch_listener, this);
+    } else if (!(caps & WL_SEAT_CAPABILITY_TOUCH) && m_touch) {
+        wl_touch_destroy(m_touch);
+        m_touch = nullptr;
+    }
 }
 
 const struct wl_pointer_listener Window::s_pointer_listener = {
@@ -339,6 +347,169 @@ const struct wl_keyboard_listener Window::s_keyboard_listener = {
     .repeat_info = [](void*, struct wl_keyboard*, int32_t, int32_t) {}
 };
 
+const struct wl_touch_listener Window::s_touch_listener = {
+    .down = [](void* data, struct wl_touch*, uint32_t serial, uint32_t time, struct wl_surface*, int32_t id, wl_fixed_t x, wl_fixed_t y) {
+        auto* self = static_cast<Window*>(data);
+        double tx = wl_fixed_to_double(x);
+        double ty = wl_fixed_to_double(y);
+
+        if (self->m_primary_touch_id == -1) {
+            self->m_primary_touch_id = id;
+            self->m_touch_active = true;
+            self->m_last_x = tx;
+            self->m_last_y = ty;
+        }
+
+        TouchEvent event{ id, tx, ty, TouchPhase::Down, time };
+
+        // Popup overlay outside dismissal
+        if (self->m_popup_view) {
+            if (!self->m_popup_bounds.contains(tx, ty)) {
+                if (!self->m_active_popup || self->m_active_popup->is_dismiss_on_outside_click()) {
+                    self->dismiss_popup();
+                    return;
+                }
+            }
+            if (self->m_popup_view->on_touch(event, self->m_popup_bounds)) {
+                self->m_touch_consumed_by_view = true;
+                self->schedule_redraw();
+                return;
+            }
+            // Mouse fallback
+            self->m_touch_consumed_by_view = false;
+            self->m_popup_view->on_mouse_move(tx, ty, self->m_popup_bounds);
+            if (self->m_popup_view->on_mouse_button(tx, ty, MouseButton::Left, true, self->m_popup_bounds)) {
+                self->schedule_redraw();
+            }
+            return;
+        }
+
+        // Close on click outside
+        if (self->m_close_on_click_outside && !self->m_allocated_content_bounds.contains(tx, ty)) {
+            if (self->m_on_close) self->m_on_close();
+            self->close();
+            return;
+        }
+
+        if (self->m_root_view) {
+            if (self->m_root_view->on_touch(event, self->m_allocated_content_bounds)) {
+                self->m_touch_consumed_by_view = true;
+                self->schedule_redraw();
+                return;
+            }
+            // Fallback mouse emulation
+            self->m_touch_consumed_by_view = false;
+            View* prev_focused = self->m_focused_view;
+            self->m_root_view->on_mouse_move(tx, ty, self->m_allocated_content_bounds);
+            if (self->m_root_view->on_mouse_button(tx, ty, MouseButton::Left, true, self->m_allocated_content_bounds)) {
+                self->schedule_redraw();
+            }
+
+            if (prev_focused && self->m_focused_view == prev_focused) {
+                if (!prev_focused->contains_point(tx, ty)) {
+                    self->clear_focus();
+                }
+            }
+        }
+    },
+    .up = [](void* data, struct wl_touch*, uint32_t serial, uint32_t time, int32_t id) {
+        auto* self = static_cast<Window*>(data);
+        TouchEvent event{ id, self->m_last_x, self->m_last_y, TouchPhase::Up, time };
+
+        if (self->m_popup_view) {
+            if (self->m_touch_consumed_by_view) {
+                if (self->m_popup_view->on_touch(event, self->m_popup_bounds)) {
+                    self->schedule_redraw();
+                }
+            } else if (id == self->m_primary_touch_id) {
+                if (self->m_popup_view->on_mouse_button(self->m_last_x, self->m_last_y, MouseButton::Left, false, self->m_popup_bounds)) {
+                    self->schedule_redraw();
+                }
+            }
+        } else if (self->m_root_view) {
+            if (self->m_touch_consumed_by_view) {
+                if (self->m_root_view->on_touch(event, self->m_allocated_content_bounds)) {
+                    self->schedule_redraw();
+                }
+            } else if (id == self->m_primary_touch_id) {
+                if (self->m_root_view->on_mouse_button(self->m_last_x, self->m_last_y, MouseButton::Left, false, self->m_allocated_content_bounds)) {
+                    self->schedule_redraw();
+                }
+            }
+        }
+
+        if (id == self->m_primary_touch_id) {
+            self->m_primary_touch_id = -1;
+            self->m_touch_active = false;
+            self->m_touch_consumed_by_view = false;
+        }
+    },
+    .motion = [](void* data, struct wl_touch*, uint32_t time, int32_t id, wl_fixed_t x, wl_fixed_t y) {
+        auto* self = static_cast<Window*>(data);
+        double tx = wl_fixed_to_double(x);
+        double ty = wl_fixed_to_double(y);
+
+        if (id == self->m_primary_touch_id) {
+            self->m_last_x = tx;
+            self->m_last_y = ty;
+        }
+
+        TouchEvent event{ id, tx, ty, TouchPhase::Motion, time };
+
+        if (self->m_popup_view) {
+            if (self->m_touch_consumed_by_view) {
+                if (self->m_popup_view->on_touch(event, self->m_popup_bounds)) {
+                    self->schedule_redraw();
+                }
+            } else if (id == self->m_primary_touch_id) {
+                if (self->m_popup_view->on_mouse_move(tx, ty, self->m_popup_bounds)) {
+                    self->schedule_redraw();
+                }
+            }
+        } else if (self->m_root_view) {
+            if (self->m_touch_consumed_by_view) {
+                if (self->m_root_view->on_touch(event, self->m_allocated_content_bounds)) {
+                    self->schedule_redraw();
+                }
+            } else if (id == self->m_primary_touch_id) {
+                if (self->m_root_view->on_mouse_move(tx, ty, self->m_allocated_content_bounds)) {
+                    self->schedule_redraw();
+                }
+            }
+        }
+    },
+    .frame = [](void*, struct wl_touch*) {},
+    .cancel = [](void* data, struct wl_touch*) {
+        auto* self = static_cast<Window*>(data);
+        TouchEvent event{ self->m_primary_touch_id, self->m_last_x, self->m_last_y, TouchPhase::Cancel, 0 };
+
+        if (self->m_popup_view) {
+            if (self->m_touch_consumed_by_view) {
+                self->m_popup_view->on_touch(event, self->m_popup_bounds);
+            } else {
+                self->m_popup_view->on_mouse_button(self->m_last_x, self->m_last_y, MouseButton::Left, false, self->m_popup_bounds);
+            }
+        } else if (self->m_root_view) {
+            if (self->m_touch_consumed_by_view) {
+                self->m_root_view->on_touch(event, self->m_allocated_content_bounds);
+            } else {
+                self->m_root_view->on_mouse_button(self->m_last_x, self->m_last_y, MouseButton::Left, false, self->m_allocated_content_bounds);
+            }
+        }
+
+        self->m_primary_touch_id = -1;
+        self->m_touch_active = false;
+        self->m_touch_consumed_by_view = false;
+        self->schedule_redraw();
+    },
+#ifdef WL_TOUCH_SHAPE_SINCE_VERSION
+    .shape = [](void*, struct wl_touch*, int32_t, wl_fixed_t, wl_fixed_t) {},
+#endif
+#ifdef WL_TOUCH_ORIENTATION_SINCE_VERSION
+    .orientation = [](void*, struct wl_touch*, int32_t, wl_fixed_t) {},
+#endif
+};
+
 const struct wl_callback_listener Window::s_frame_listener = {
     .done = [](void* data, struct wl_callback* callback, uint32_t time) {
         auto* self = static_cast<Window*>(data);
@@ -366,12 +537,14 @@ Window::~Window() {
     if (m_xkb_ctx) xkb_context_unref(m_xkb_ctx);
     if (m_pointer) wl_pointer_destroy(m_pointer);
     if (m_keyboard) wl_keyboard_destroy(m_keyboard);
+    if (m_touch) wl_touch_destroy(m_touch);
     if (m_xdg_toplevel) xdg_toplevel_destroy(m_xdg_toplevel);
     if (m_xdg_surface) xdg_surface_destroy(m_xdg_surface);
     if (m_layer_surface) zwlr_layer_surface_v1_destroy(m_layer_surface);
     if (m_session_lock_surface) ext_session_lock_surface_v1_destroy(m_session_lock_surface);
     if (m_surface) wl_surface_destroy(m_surface);
 }
+
 
 bool Window::init() {
     auto* engine = AppEngine::instance();

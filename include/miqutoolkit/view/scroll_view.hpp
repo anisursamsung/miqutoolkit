@@ -29,6 +29,7 @@ public:
     bool on_mouse_move(int lx, int ly, const Rect& bounds) override;
     bool on_mouse_button(int lx, int ly, MouseButton button, bool pressed, const Rect& bounds) override;
     bool on_scroll(double delta) override;
+    bool on_touch(const TouchEvent& event, const Rect& bounds) override;
 
 private:
     std::shared_ptr<View> m_content;
@@ -40,6 +41,12 @@ private:
     bool m_dragging_thumb = false;
     int m_drag_start_y = 0;
     double m_drag_start_scroll = 0.0;
+
+    int32_t m_touch_id = -1;
+    double m_touch_start_x = 0.0;
+    double m_touch_start_y = 0.0;
+    double m_touch_last_y = 0.0;
+    bool m_touch_scrolling = false;
 };
 
 class ScrollViewBuilder : public std::enable_shared_from_this<ScrollViewBuilder> {

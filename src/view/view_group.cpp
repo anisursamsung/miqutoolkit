@@ -175,4 +175,22 @@ bool ViewGroup::on_scroll(double delta) {
     return false;
 }
 
+bool ViewGroup::on_touch(const TouchEvent& event, const Rect& bounds) {
+    if (!is_visible()) return false;
+
+    // Traverse top-to-bottom (reverse order)
+    for (auto it = m_child_entries.rbegin(); it != m_child_entries.rend(); ++it) {
+        if (it->view && it->view->is_visible()) {
+            if (!it->allocated_bounds.contains(Point(static_cast<int>(event.x), static_cast<int>(event.y)))) {
+                continue;
+            }
+            if (it->view->on_touch(event, it->allocated_bounds)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 } // namespace miqu
