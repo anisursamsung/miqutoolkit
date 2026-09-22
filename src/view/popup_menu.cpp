@@ -1,5 +1,6 @@
 #include "miqutoolkit/view/popup_menu.hpp"
 #include "miqutoolkit/view/card_view.hpp"
+#include "miqutoolkit/view/image_view.hpp"
 #include "miqutoolkit/core/config.hpp"
 #include "miqutoolkit/core/window.hpp"
 #include <pango/pangocairo.h>
@@ -123,6 +124,11 @@ public:
         int total_items = static_cast<int>(items.size());
         int curr_y = bounds.y + 4;
 
+        bool any_icon = false;
+        for (const auto& it : items) {
+            if (!it.get_icon().empty()) { any_icon = true; break; }
+        }
+
         for (int i = 0; i < total_items; ++i) {
             const auto& item = items[i];
             int row_h = get_row_height(item);
@@ -141,7 +147,7 @@ public:
             } else if (item.get_type() == MenuItemType::SectionHeader) {
                 draw_section_header(cr, item_rect, item, font_family, font_size, config);
             } else {
-                draw_menu_action(cr, item_rect, item, i, font_family, font_size, config, menu_sp);
+                draw_menu_action(cr, item_rect, item, i, font_family, font_size, config, menu_sp, any_icon);
             }
         }
 
@@ -290,7 +296,8 @@ private:
     void draw_menu_action(cairo_t* cr, const Rect& rect, const MenuItem& item,
                           int index, const std::string& font_family, int font_size,
                           const std::shared_ptr<Config>& config,
-                          const std::shared_ptr<PopupMenu>& menu) const {
+                          const std::shared_ptr<PopupMenu>& menu,
+                          bool any_icon) const {
         bool is_hovered = (index == m_hovered_index);
         bool is_selected = (index == menu->get_selected_index()) || item.is_checked();
         bool is_destructive = (item.get_type() == MenuItemType::DestructiveAction);
@@ -332,22 +339,53 @@ private:
 
         int curr_x = rect.x + 12;
 
-        // 2. Icon (if present)
+        // 2. Icon (if present or column alignment)
         if (!item.get_icon().empty()) {
-            PangoLayoutPtr icon_layout(pango_cairo_create_layout(cr), g_object_unref);
-            pango_layout_set_text(icon_layout.get(), item.get_icon().c_str(), -1);
+            std::string res_path = ImageView::resolve_icon_path(item.get_icon());
+            bool is_img_icon = !res_path.empty() || item.get_icon().starts_with('/') ||
+                               item.get_icon().ends_with(".png") || item.get_icon().ends_with(".svg");
 
-            std::string icon_desc = font_family + " " + std::to_string(font_size);
-            PangoFontDescPtr idesc(pango_font_description_from_string(icon_desc.c_str()), pango_font_description_free);
-            pango_layout_set_font_description(icon_layout.get(), idesc.get());
+            if (is_img_icon) {
+                int icon_sz = 16;
+                int icon_y = rect.y + (rect.height - icon_sz) / 2;
+                bool is_symbolic = (item.get_icon().find("symbolic") != std::string::npos);
 
-            int iw = 0, ih = 0;
-            pango_layout_get_pixel_size(icon_layout.get(), &iw, &ih);
-            int icon_y = rect.y + (rect.height - ih) / 2;
+                ImageView temp_img(!res_path.empty() ? res_path : item.get_icon());
+                temp_img.set_target_size(icon_sz);
 
-            cairo_move_to(cr, curr_x, icon_y);
-            cairo_set_source_rgba(cr, text_col.r, text_col.g, text_col.b, text_col.a);
-            pango_cairo_show_layout(cr, icon_layout.get());
+                if (is_symbolic) {
+                    cairo_save(cr);
+                    cairo_push_group(cr);
+                    temp_img.draw(cr, Rect(curr_x, icon_y, icon_sz, icon_sz));
+                    cairo_pattern_t* icon_pattern = cairo_pop_group(cr);
+
+                    cairo_set_source_rgba(cr, text_col.r, text_col.g, text_col.b, text_col.a);
+                    cairo_mask(cr, icon_pattern);
+                    cairo_pattern_destroy(icon_pattern);
+                    cairo_restore(cr);
+                } else {
+                    temp_img.draw(cr, Rect(curr_x, icon_y, icon_sz, icon_sz));
+                }
+                curr_x += 24;
+            } else if (item.get_icon().size() <= 8) {
+                // Short emoji or single glyph symbol
+                PangoLayoutPtr icon_layout(pango_cairo_create_layout(cr), g_object_unref);
+                pango_layout_set_text(icon_layout.get(), item.get_icon().c_str(), -1);
+
+                std::string icon_desc = font_family + " " + std::to_string(font_size);
+                PangoFontDescPtr idesc(pango_font_description_from_string(icon_desc.c_str()), pango_font_description_free);
+                pango_layout_set_font_description(icon_layout.get(), idesc.get());
+
+                int iw = 0, ih = 0;
+                pango_layout_get_pixel_size(icon_layout.get(), &iw, &ih);
+                int icon_y = rect.y + (rect.height - ih) / 2;
+
+                cairo_move_to(cr, curr_x, icon_y);
+                cairo_set_source_rgba(cr, text_col.r, text_col.g, text_col.b, text_col.a);
+                pango_cairo_show_layout(cr, icon_layout.get());
+                curr_x += 24;
+            }
+        } else if (any_icon && item.get_type() != MenuItemType::Checkable && item.get_type() != MenuItemType::Radio) {
             curr_x += 24;
         }
 

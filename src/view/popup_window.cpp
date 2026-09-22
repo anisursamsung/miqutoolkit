@@ -38,7 +38,7 @@ public:
 
         auto config = Config::get();
         int radius = (m_radius_override >= 0) ? m_radius_override : config->metrics.corner_radius;
-        Color bg = m_has_bg ? m_custom_bg : config->colors.surface;
+        Color bg = m_has_bg ? m_custom_bg : config->colors.surface.with_alpha(1.0f);
         Color stroke_col = (m_border_col.a > 0.0f) ? m_border_col : config->colors.outline_variant;
         double stroke_w = (m_border_w >= 0.0) ? m_border_w : 1.0;
 
