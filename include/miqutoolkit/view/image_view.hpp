@@ -65,6 +65,26 @@ public:
     }
     ImageQuality get_quality_mode() const { return m_quality; }
 
+    void set_blur_radius(int radius) {
+        int clamped = std::max(0, radius);
+        if (m_blur_radius != clamped) {
+            m_blur_radius = clamped;
+            invalidate_surface_cache();
+            request_redraw();
+        }
+    }
+    int get_blur_radius() const { return m_blur_radius; }
+
+    void set_dim(float dim) {
+        float clamped = std::clamp(dim, 0.0f, 1.0f);
+        if (std::abs(m_dim_alpha - clamped) > 0.001f) {
+            m_dim_alpha = clamped;
+            invalidate_surface_cache();
+            request_redraw();
+        }
+    }
+    float get_dim() const { return m_dim_alpha; }
+
     void invalidate_surface_cache();
 
     void set_corner_radius(int radius) { m_corner_radius = radius; request_redraw(); }
@@ -110,6 +130,8 @@ private:
     double m_rotation_degrees = 0.0;
     float m_opacity = 1.0f;
     Color m_bg_color = Color::transparent();
+    int m_blur_radius = 0;
+    float m_dim_alpha = 0.0f;
 
     cairo_surface_t* m_cached_surface = nullptr;
     int m_cached_w = 0;
@@ -118,6 +140,8 @@ private:
     FitMode m_cached_fit = FitMode::Contain;
     ImageQuality m_cached_quality = ImageQuality::FullOriginal;
     int m_cached_target_size = 0;
+    int m_cached_blur_radius = 0;
+    float m_cached_dim_alpha = 0.0f;
 };
 
 class ImageViewBuilder : public std::enable_shared_from_this<ImageViewBuilder> {
@@ -140,6 +164,16 @@ public:
 
     std::shared_ptr<ImageViewBuilder> qualityMode(ImageQuality quality) {
         m_view->set_quality_mode(quality);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> blurRadius(int radius) {
+        m_view->set_blur_radius(radius);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<ImageViewBuilder> dim(float dim) {
+        m_view->set_dim(dim);
         return shared_from_this();
     }
 
