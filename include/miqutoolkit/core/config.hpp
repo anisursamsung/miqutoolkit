@@ -49,7 +49,7 @@ public:
     void add_change_listener(std::function<void()> listener) { m_change_listeners.push_back(std::move(listener)); }
     void notify_changed();
 
-    static std::string ensure_user_config(
+    static std::string init_user_config(
         const std::string& app_name,
         const std::string& main_file = "",
         const std::vector<std::string>& additional_files = {}

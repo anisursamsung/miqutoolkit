@@ -249,13 +249,15 @@ void Config::notify_changed() {
 
 void Config::init_toolkit_defaults() {
     m_loaded_files.clear();
+    colors = Colors{};
+    metrics = Metrics{};
 
     std::string user_cfg_dir = FsUtils::get_user_config_dir("miqutoolkit");
     std::string user_cfg_file = user_cfg_dir.empty() ? "" : (user_cfg_dir + "/miqutoolkit.conf");
 
     bool loaded_defaults = false;
 
-    // Tier 2: Check if user config exists already
+    // Tier 2: Check if user config exists
     if (!user_cfg_file.empty() && fs::exists(user_cfg_file)) {
         std::string exp = expand_path(user_cfg_file);
         load_config_file_internal(exp, colors, metrics, m_loaded_files, 0);
@@ -263,23 +265,7 @@ void Config::init_toolkit_defaults() {
     }
 
     if (!loaded_defaults) {
-        // If user configuration directory exists but file is absent,
-        // the user intentionally deleted their config. Fall back directly to root.
-        bool user_deleted_config = !user_cfg_dir.empty() && fs::exists(user_cfg_dir) && !fs::exists(user_cfg_file);
-
-        if (!user_deleted_config) {
-            // First launch: initialize user config from root template
-            std::string seeded = ensure_user_config("miqutoolkit", "miqutoolkit.conf");
-            if (!seeded.empty() && fs::exists(seeded)) {
-                std::string exp = expand_path(seeded);
-                load_config_file_internal(exp, colors, metrics, m_loaded_files, 0);
-                loaded_defaults = true;
-            }
-        }
-    }
-
-    if (!loaded_defaults) {
-        // Tier 3: Safe root fallback
+        // Tier 3: Safe root fallback (Dead End Authority)
         const std::vector<std::string> root_candidates = {
             "/usr/share/miqutoolkit/miqutoolkit.conf",
             "/etc/xdg/miqutoolkit/miqutoolkit.conf",
@@ -307,7 +293,7 @@ void Config::init_toolkit_defaults() {
     notify_changed();
 }
 
-std::string Config::ensure_user_config(
+std::string Config::init_user_config(
     const std::string& app_name,
     const std::string& main_file,
     const std::vector<std::string>& additional_files
@@ -369,12 +355,12 @@ std::string Config::ensure_user_config(
     return "";
 }
 
-std::string FsUtils::ensure_user_config(
+std::string FsUtils::init_user_config(
     const std::string& app_name,
     const std::string& main_file,
     const std::vector<std::string>& additional_files
 ) {
-    return Config::ensure_user_config(app_name, main_file, additional_files);
+    return Config::init_user_config(app_name, main_file, additional_files);
 }
 
 } // namespace miqu

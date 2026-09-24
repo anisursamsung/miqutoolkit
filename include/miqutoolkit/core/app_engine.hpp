@@ -60,6 +60,8 @@ public:
 
     static AppEngine* instance() { return s_instance; }
 
+    void setup_config_watcher();
+
 private:
     AppEngine() = default;
     bool init();
@@ -105,7 +107,6 @@ private:
     std::vector<std::pair<int, std::string>> m_inotify_watches;
     std::vector<std::function<void()>> m_theme_change_listeners;
 
-    void setup_config_watcher();
     void handle_inotify_events();
 };
 
